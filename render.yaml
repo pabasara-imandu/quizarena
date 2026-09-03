@@ -1,0 +1,43 @@
+# Render Blueprint - two web services, both WebSocket-capable.
+#
+# 1. Push this repo to GitHub.
+# 2. Render dashboard -> New -> Blueprint -> pick the repo.
+# 3. After the first deploy, set the two cross-referencing URLs (see DEPLOY.md).
+services:
+  - type: web
+    name: quizarena-server
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Set to the client service's URL once it exists, e.g.
+      # https://quizarena-client.onrender.com
+      - key: CLIENT_ORIGIN
+        sync: false
+      # Optional: enables real question generation instead of the scaffold.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+  # Optional: only if you want BOTH halves on Render. If you are putting the
+  # client on Netlify (see DEPLOY.md Option 2), delete this service - you only
+  # need the server above.
+  - type: web
+    name: quizarena-client
+    runtime: node
+    plan: free
+    rootDir: client
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Set to the server service's URL, e.g.
+      # https://quizarena-server.onrender.com
+      # This is baked in at build time, so changing it needs a redeploy.
+      - key: NEXT_PUBLIC_SERVER_URL
+        sync: false

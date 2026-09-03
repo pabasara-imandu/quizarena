@@ -1,0 +1,19 @@
+# Normalise to LF in the repository.
+#
+# This matters beyond tidiness: the Dockerfile, Caddyfile and shell-invoked
+# scripts are read on Linux, and a CRLF line ending there produces errors that
+# look nothing like a line-ending problem. Committing LF keeps a Windows
+# checkout building the same images as a Linux one.
+* text=auto eol=lf
+
+# Binary-ish assets should never be touched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+
+# Lockfiles are generated; collapse them in diffs and reviews.
+package-lock.json linguist-generated=true -diff

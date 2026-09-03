@@ -1,0 +1,178 @@
+import { normalizeQuiz } from './quizSchema.js';
+
+/**
+ * Topic -> quiz question generation.
+ *
+ * Two paths, chosen automatically:
+ *
+ *  1. `ANTHROPIC_API_KEY` is set (and `@anthropic-ai/sdk` installed) -> a real
+ *     call to Claude with a JSON schema constraining the shape, so the result
+ *     is guaranteed to parse into our quiz format.
+ *  2. Otherwise -> a deterministic scaffold. Every question is a real, editable
+ *     row with the topic filled in and the answer left obviously blank, so the
+ *     endpoint is useful offline and in CI without pretending to know facts it
+ *     does not.
+ *
+ * The scaffold is honest on purpose: it never invents plausible-looking
+ * answers, because a teacher skim-reading generated content would have no way
+ * to tell a real fact from a fabricated one.
+ */
+
+const MODEL = 'claude-opus-5';
+
+const QUESTION_SCHEMA = {
+  type: 'object',
+  properties: {
+    title: { type: 'string' },
+    questions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          text: { type: 'string' },
+          type: { type: 'string', enum: ['multiple', 'truefalse', 'short'] },
+          options: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                text: { type: 'string' },
+                correct: { type: 'boolean' },
+              },
+              required: ['text', 'correct'],
+              additionalProperties: false,
+            },
+          },
+          acceptedAnswers: { type: 'array', items: { type: 'string' } },
+          timeLimitSec: { type: 'integer' },
+          points: { type: 'integer' },
+        },
+        required: ['text', 'type', 'options', 'acceptedAnswers', 'timeLimitSec', 'points'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['title', 'questions'],
+  additionalProperties: false,
+};
+
+export async function generateQuiz({ topic, count = 5, difficulty = 'mixed', gradeLevel = '' }) {
+  const safeCount = Math.min(Math.max(Math.round(Number(count) || 5), 1), 20);
+  const cleanTopic = String(topic || '').trim().slice(0, 200);
+  if (!cleanTopic) {
+    const err = new Error('Give the generator a topic to work from.');
+    err.status = 400;
+    throw err;
+  }
+
+  if (process.env.ANTHROPIC_API_KEY) {
+    try {
+      return await generateWithClaude({ topic: cleanTopic, count: safeCount, difficulty, gradeLevel });
+    } catch (err) {
+      // Never fail the request because the model was unavailable - fall back
+      // to the scaffold and tell the caller what happened.
+      return {
+        ...buildScaffold({ topic: cleanTopic, count: safeCount }),
+        source: 'scaffold',
+        notice: 'Claude was unreachable (' + err.message + '), so this is an editable scaffold.',
+      };
+    }
+  }
+
+  return {
+    ...buildScaffold({ topic: cleanTopic, count: safeCount }),
+    source: 'scaffold',
+    notice:
+      'Set ANTHROPIC_API_KEY on the server to generate real questions. This is an editable scaffold.',
+  };
+}
+
+async function generateWithClaude({ topic, count, difficulty, gradeLevel }) {
+  const { default: Anthropic } = await import('@anthropic-ai/sdk');
+  const client = new Anthropic();
+
+  const audience = gradeLevel ? ' The audience is ' + gradeLevel + '.' : '';
+
+  const response = await client.messages.create({
+    model: MODEL,
+    max_tokens: 16000,
+    thinking: { type: 'adaptive' },
+    output_config: { format: { type: 'json_schema', schema: QUESTION_SCHEMA } },
+    system:
+      'You write classroom quiz questions. Every question must have exactly one ' +
+      'unambiguously correct answer that a well-prepared student could defend from ' +
+      'a textbook. Distractors must be plausible but clearly wrong on inspection - ' +
+      'never a second defensible answer. Prefer questions that test understanding ' +
+      'over recall of trivia. If you are not confident a fact is correct, choose a ' +
+      'different question rather than guessing.',
+    messages: [
+      {
+        role: 'user',
+        content:
+          'Write ' + count + ' quiz questions about: ' + topic + '.' + audience +
+          ' Difficulty: ' + difficulty + '.' +
+          ' Mix multiple-choice (4 options, exactly one correct) with a few true/false' +
+          ' and at most one short-answer question. For multiple-choice and true/false,' +
+          ' put the options in `options` and leave `acceptedAnswers` empty. For' +
+          ' short-answer, leave `options` empty and list every spelling you would' +
+          ' accept in `acceptedAnswers`. Use timeLimitSec between 15 and 45, and' +
+          ' points of 1000 (1500 for harder questions).',
+      },
+    ],
+  });
+
+  const block = response.content.find((b) => b.type === 'text');
+  const parsed = JSON.parse(block.text);
+
+  return {
+    quiz: normalizeQuiz({ title: parsed.title || topic, questions: parsed.questions }),
+    source: 'claude',
+    model: MODEL,
+    notice: 'Generated by Claude. Review every answer before you run this with a class.',
+  };
+}
+
+/**
+ * Deterministic, offline scaffold. Produces valid, editable questions with the
+ * answers left blank - a starting structure, never invented facts.
+ */
+function buildScaffold({ topic, count }) {
+  const angles = [
+    'Which of these best describes TOPIC?',
+    'What is the main purpose of TOPIC?',
+    'Which statement about TOPIC is correct?',
+    'TOPIC is most closely associated with which of the following?',
+    'Which is NOT true of TOPIC?',
+    'What problem does TOPIC solve?',
+    'Which example best illustrates TOPIC?',
+    'What is a common misconception about TOPIC?',
+  ];
+
+  const questions = Array.from({ length: count }, (_, i) => {
+    if (i > 0 && i % 4 === 3) {
+      return {
+        id: 'gen' + i,
+        type: 'truefalse',
+        text: angles[i % angles.length].replace('TOPIC', topic).replace(/\?$/, '') + ' (edit me)',
+        timeLimitSec: 15,
+        points: 800,
+        correctBoolean: true,
+      };
+    }
+    return {
+      id: 'gen' + i,
+      type: 'multiple',
+      text: angles[i % angles.length].replace('TOPIC', topic),
+      timeLimitSec: 25,
+      points: 1000,
+      options: [
+        { id: 'gen' + i + 'a', text: 'Replace with the correct answer', correct: true },
+        { id: 'gen' + i + 'b', text: 'Replace with a plausible distractor' },
+        { id: 'gen' + i + 'c', text: 'Replace with a plausible distractor' },
+        { id: 'gen' + i + 'd', text: 'Replace with a plausible distractor' },
+      ],
+    };
+  });
+
+  return { quiz: normalizeQuiz({ title: topic, questions }) };
+}

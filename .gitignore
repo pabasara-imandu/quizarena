@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# builds
+.next/
+out/
+dist/
+*.tsbuildinfo
+
+# secrets and local config — never commit these.
+# The .example files are committed instead; copy them locally.
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# logs and OS noise
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/
+.idea/
