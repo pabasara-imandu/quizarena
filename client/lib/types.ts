@@ -81,7 +81,10 @@ export interface HostSync {
   playerCount: number;
   connectedCount: number;
   answeredCount: number;
+  /** Full roster in the lobby; top scorers + flagged players once playing. */
   players: HostPlayer[];
+  /** True when `players` is a summary rather than the whole room. */
+  rosterTruncated?: boolean;
 }
 
 export interface IntegrityEntry {

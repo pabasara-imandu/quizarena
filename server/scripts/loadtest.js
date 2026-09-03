@@ -31,8 +31,12 @@ const percentile = (arr, p) => {
   return sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))];
 };
 
+const health = async () => (await fetch(SERVER_URL + '/api/health')).json();
+
 async function main() {
   console.log('Load test: ' + PLAYERS + ' students against ' + SERVER_URL);
+  const before = await health();
+  const wallStart = Date.now();
 
   const host = connect();
   await new Promise((r) => host.on('connect', r));
@@ -49,6 +53,15 @@ async function main() {
   const students = [];
   let questionsSeen = 0;
   let revealsSeen = 0;
+  // Bytes the server pushed OUT to students. On a self-hosted laptop this is
+  // the number that has to fit down a home upload link.
+  let bytesToStudents = 0;
+  let bytesToHost = 0;
+
+  const sizeOf = (payload) => Buffer.byteLength(JSON.stringify(payload ?? null), 'utf8');
+  host.onAny((_e, payload) => {
+    bytesToHost += sizeOf(payload);
+  });
 
   const connectStart = Date.now();
   await Promise.all(
@@ -86,6 +99,9 @@ async function main() {
       });
 
       socket.on('game:reveal', () => revealsSeen++);
+      socket.onAny((_e, payload) => {
+        bytesToStudents += sizeOf(payload);
+      });
       students.push(socket);
     })
   );
@@ -104,6 +120,10 @@ async function main() {
   await emit(host, 'host:start', {});
   const analytics = await finished;
 
+  const after = await health();
+  const wallSec = (Date.now() - wallStart) / 1000;
+  const cpuMs = after.cpuMs - before.cpuMs;
+
   console.log('\n--- results ---');
   console.log('questions delivered to students: ' + questionsSeen);
   console.log('reveals delivered to students:   ' + revealsSeen);
@@ -121,6 +141,25 @@ async function main() {
   console.log('overall accuracy:    ' + (analytics.overallAccuracy * 100).toFixed(1) + '%');
   console.log('hardest question:    ' + (analytics.hardestQuestions[0]?.text || 'n/a'));
   console.log('podium:              ' + analytics.podium.map((p) => p.nickname).join(', '));
+
+  console.log('\n--- server cost ---');
+  console.log('wall time:           ' + wallSec.toFixed(1) + 's');
+  console.log('server CPU used:     ' + cpuMs + 'ms');
+  // The decisive number for a small instance: what fraction of ONE core the
+  // server needed while the quiz was running.
+  console.log('avg CPU load:        ' + ((cpuMs / 1000 / wallSec) * 100).toFixed(1) + '% of one core');
+  console.log('CPU per player:      ' + (cpuMs / PLAYERS).toFixed(1) + 'ms');
+  console.log('memory (rss):        ' + after.rssMb + 'MB');
+
+  const totalKb = (bytesToStudents + bytesToHost) / 1024;
+  console.log('\n--- upload from the server ---');
+  console.log('to all students:     ' + (bytesToStudents / 1024).toFixed(0) + ' KB');
+  console.log('to the host:         ' + (bytesToHost / 1024).toFixed(0) + ' KB');
+  console.log('total for the quiz:  ' + totalKb.toFixed(0) + ' KB');
+  console.log('average upload:      ' + ((totalKb * 8) / wallSec / 1024).toFixed(2) + ' Mbps');
+  // The spike that matters: one question opening pushes a payload to everyone
+  // at once, and that burst is what a slow uplink chokes on.
+  console.log('per-question burst:  ' + (bytesToStudents / 1024 / 6).toFixed(0) + ' KB to students');
 
   students.forEach((s) => s.close());
   host.close();

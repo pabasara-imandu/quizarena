@@ -1,5 +1,6 @@
 import { config } from '../config.js';
 import { PHASE } from './room.js';
+import { rankPlayers } from './scoring.js';
 
 /**
  * Room channel naming. Players and the host live in separate Socket.IO rooms
@@ -51,25 +52,56 @@ export function scheduleHostSync(io, room, intervalMs = 250) {
   emitHostSync(io, room);
 }
 
+/**
+ * Above this many players, the mid-game roster is trimmed. Below it, sending
+ * everyone costs nothing and keeps the payload simple.
+ */
+const FULL_ROSTER_LIMIT = 60;
+const LEADERBOARD_ROWS = 15;
+
 export function emitHostSync(io, room) {
   room.dirty = false;
   const bucket = room.currentAnswers;
+  const all = [...room.players.values()];
+
+  const shape = (p) => ({
+    id: p.id,
+    nickname: p.nickname,
+    score: p.score,
+    streak: p.streak,
+    connected: p.connected,
+    strikes: p.strikes,
+    tabSwitches: p.tabSwitches,
+    fullscreenExits: p.fullscreenExits,
+    answered: bucket ? bucket.has(p.id) : false,
+  });
+
+  /**
+   * The lobby genuinely needs every name - that list is the whole screen. Once
+   * the quiz is running the host only ever renders the leaderboard's top rows
+   * and anyone flagged, so shipping all 300 player objects four times a second
+   * was pure waste: at 300 players that is the single largest recurring cost in
+   * the room, and it grows with class size while nothing on screen does.
+   */
+  let players;
+  if (room.phase === PHASE.LOBBY || all.length <= FULL_ROSTER_LIMIT) {
+    players = all.map(shape);
+  } else {
+    const keep = new Map();
+    for (const p of rankPlayers(all).slice(0, LEADERBOARD_ROWS)) keep.set(p.id, p);
+    // Anyone with an integrity flag is always included - the host acts on those.
+    for (const p of all) if (p.strikes > 0 || p.tabSwitches > 0) keep.set(p.id, p);
+    players = [...keep.values()].map(shape);
+  }
+
   io.to(channels.host(room.pin)).emit('host:sync', {
     phase: room.phase,
     playerCount: room.players.size,
     connectedCount: room.connectedCount,
     answeredCount: bucket ? bucket.size : 0,
-    players: [...room.players.values()].map((p) => ({
-      id: p.id,
-      nickname: p.nickname,
-      score: p.score,
-      streak: p.streak,
-      connected: p.connected,
-      strikes: p.strikes,
-      tabSwitches: p.tabSwitches,
-      fullscreenExits: p.fullscreenExits,
-      answered: bucket ? bucket.has(p.id) : false,
-    })),
+    players,
+    // Tells the host UI that `players` is a summary, not the whole room.
+    rosterTruncated: players.length < all.length,
   });
 }
 
