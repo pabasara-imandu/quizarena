@@ -7,7 +7,7 @@ import rateLimit from 'express-rate-limit';
 import { Server } from 'socket.io';
 
 import { config } from './config.js';
-import { api } from './routes/api.js';
+import { api, rootStatusPage } from './routes/api.js';
 import { registerSocketHandlers } from './sockets/index.js';
 
 const app = express();
@@ -18,6 +18,7 @@ app.use(compression());
 app.use(cors({ origin: config.clientOrigin, credentials: true }));
 app.use(express.json({ limit: '256kb' }));
 app.use(rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false }));
+app.get('/', rootStatusPage);
 app.use('/api', api);
 
 const server = http.createServer(app);

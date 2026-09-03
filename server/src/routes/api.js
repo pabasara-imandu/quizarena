@@ -192,3 +192,28 @@ api.get('/rooms/:pin/export.json', (req, res) => {
   }
   res.json(room.buildAnalytics());
 });
+
+/**
+ * A human-readable status page at the server root.
+ *
+ * There is deliberately no app here - the browser client is deployed
+ * separately and this process only serves /api and the WebSocket endpoint.
+ * But an anonymous "Cannot GET /" reads like a broken deployment to anyone
+ * checking whether the server came up, so say what this is instead.
+ */
+export function rootStatusPage(_req, res) {
+  res.type('html').send(
+    '<!doctype html><meta charset="utf-8">' +
+      '<title>QuizArena server</title>' +
+      '<style>body{font:16px/1.6 system-ui,sans-serif;background:#0b0b12;color:#e8e8ee;' +
+      'display:grid;place-items:center;min-height:100vh;margin:0;text-align:center;padding:2rem}' +
+      'code{background:#1f1f2e;padding:.15em .4em;border-radius:.3em}' +
+      'a{color:#9484ff}</style>' +
+      '<div><h1>QuizArena server is running ✅</h1>' +
+      '<p>This is the game server, not the app. There is no page here by design.</p>' +
+      '<p>Status: <a href="/api/health"><code>/api/health</code></a></p>' +
+      '<p style="opacity:.6;font-size:.9em">Players and hosts use the web app, ' +
+      'which is deployed separately.</p></div>'
+  );
+}
+
