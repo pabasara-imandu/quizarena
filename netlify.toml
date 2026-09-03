@@ -1,0 +1,21 @@
+# Netlify hosts the CLIENT half only.
+#
+# The quiz server is a stateful Socket.IO process and cannot run on Netlify
+# Functions — they are serverless and cannot hold a WebSocket open for a
+# twenty-minute quiz. Deploy server/ to an always-on host and point
+# NEXT_PUBLIC_SERVER_URL at it. See DEPLOY.md.
+
+[build]
+  # The Next.js app lives in a subdirectory; paths below are relative to it.
+  base = "client"
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # Netlify's adapter needs a normal Next build, not a standalone one.
+  BUILD_STANDALONE = "false"
+
+# Set NEXT_PUBLIC_SERVER_URL in the Netlify UI (Site settings -> Environment
+# variables) to your server's public HTTPS URL. It is baked in at build time,
+# so changing it needs a redeploy, not just a restart.

@@ -1,0 +1,22 @@
+# One domain in front of both services.
+#
+# This is what makes the deployment simple: the browser only ever talks to one
+# origin, so there is no CORS to configure and the client image needs no
+# rebuild to move between domains. Caddy also gets a real TLS certificate
+# automatically as long as SITE_ADDRESS is a domain pointed at this machine.
+{$SITE_ADDRESS:localhost} {
+	encode zstd gzip
+
+	# WebSocket upgrades are handled by reverse_proxy automatically.
+	handle /socket.io/* {
+		reverse_proxy server:4000
+	}
+
+	handle /api/* {
+		reverse_proxy server:4000
+	}
+
+	handle {
+		reverse_proxy client:3000
+	}
+}

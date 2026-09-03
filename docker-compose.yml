@@ -1,0 +1,57 @@
+# Self-host the whole thing on one machine, on one domain.
+#
+#   SITE_ADDRESS=quiz.example.com docker compose up -d --build
+#
+# Leave SITE_ADDRESS unset to run at http://localhost for a local trial.
+services:
+  server:
+    build: ./server
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      # Behind the proxy the browser's origin is the public site, so that is
+      # what Socket.IO must accept.
+      CLIENT_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost}
+      # Uncomment to run more than one server replica (see DEPLOY.md).
+      # REDIS_URL: redis://redis:6379
+    expose:
+      - "4000"
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      args:
+        # Empty on purpose: the client uses its own origin and Caddy routes
+        # /api and /socket.io to the server.
+        NEXT_PUBLIC_SERVER_URL: ""
+    expose:
+      - "3000"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - client
+      - server
+    restart: unless-stopped
+
+  # Only needed if you scale the server past one replica.
+  # redis:
+  #   image: redis:7-alpine
+  #   restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,39 @@
+{
+  "name": "quizarena-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Realtime live quiz server (Express + Socket.IO)",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "loadtest": "node scripts/loadtest.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "multer": "^2.3.0",
+    "nanoid": "^5.0.7",
+    "socket.io": "^4.7.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/sdk": "^0.123.0",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "redis": "^4.7.0"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
+  },
+  "overrides": {
+    "qs": "^6.15.4"
+  }
+}

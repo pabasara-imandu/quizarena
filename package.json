@@ -1,0 +1,17 @@
+{
+  "name": "quizarena",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real-time live quizzing platform - Express/Socket.IO backend + Next.js frontend",
+  "scripts": {
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm --prefix client run build",
+    "loadtest": "npm --prefix server run loadtest",
+    "selftest": "npm --prefix server run selftest",
+    "preview:prod": "node scripts/preview-prod.mjs",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down"
+  }
+}
