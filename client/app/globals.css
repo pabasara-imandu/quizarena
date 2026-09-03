@@ -162,6 +162,14 @@ body {
   animation: logo-glint 6.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
+/* No JS gates this any more - the crest is a plain server component. */
+@media (prefers-reduced-motion: reduce) {
+  .logo-glint {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 @keyframes logo-glint {
   0%,
   8% {
