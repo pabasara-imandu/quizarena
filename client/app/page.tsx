@@ -8,25 +8,27 @@ export default function HomePage() {
       <div className="text-center">
         <span className="chip-brand">Live · real-time · one PIN</span>
 
-        {/* One masthead. The crest and the product name share a rule, so the
+        {/* One masthead: the crest and the product name share a rule, so the
             page reads as the society's rather than as a product that happens
-            to credit them - and the crest earns its place at a fraction of
-            the size it needed when it stood alone. */}
+            to credit them.
+
+            The credit sits under the whole row, not inside it. Tucked beside
+            the wordmark it was the widest thing in the lockup, so it pushed
+            the crest out to one margin and itself to the other - centred by
+            the box model, lopsided to the eye. */}
         <div className="mt-6 flex items-center justify-center gap-3 sm:gap-5">
           <SocietyLogo className="w-14 shrink-0 sm:w-[5.5rem]" />
-          <span className="h-11 w-px shrink-0 bg-white/[0.13] sm:h-16" aria-hidden />
-
-          <div className="text-left">
-            <Tilt3D>
-              <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-6xl">
-                Quiz<span className="text-brand-400">Arena</span>
-              </h1>
-            </Tilt3D>
-            <p className="mt-1 text-[12.5px] font-medium leading-snug text-slate-400 sm:mt-1.5 sm:text-[15px]">
-              Hosted by <span className="text-brand-300">Ananda College ICT Society</span>
-            </p>
-          </div>
+          <span className="h-10 w-px shrink-0 bg-white/[0.13] sm:h-14" aria-hidden />
+          <Tilt3D>
+            <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-6xl">
+              Quiz<span className="text-brand-400">Arena</span>
+            </h1>
+          </Tilt3D>
         </div>
+
+        <p className="mt-3.5 text-[13px] font-medium text-slate-400 sm:mt-4 sm:text-[15px]">
+          Hosted by <span className="text-brand-300">Ananda College ICT Society</span>
+        </p>
       </div>
 
       <div className="mt-12 grid w-full gap-4 sm:grid-cols-2">
