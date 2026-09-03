@@ -8,9 +8,8 @@ export default function HomePage() {
         <h1 className="font-display text-6xl font-extrabold tracking-tight sm:text-7xl">
           Quiz<span className="text-brand-400">Arena</span>
         </h1>
-        <p className="mx-auto mt-5 max-w-lg text-lg leading-relaxed text-slate-400">
-          Real-time classroom quizzing. One PIN, a hundred phones, a live leaderboard — and a server
-          that owns the clock, so the scores are honest.
+        <p className="mt-5 text-lg font-medium text-slate-300">
+          Hosted by <span className="text-brand-300">Ananda College ICT Society</span>
         </p>
       </div>
 
@@ -47,8 +46,8 @@ export default function HomePage() {
         </Link>
       </div>
 
-      <p className="mt-12 text-xs text-slate-600">
-        Scoring, timing and answer validation all happen server-side.
+      <p className="mt-12 text-xs tracking-wide text-slate-600">
+        ACICTS © 2026
       </p>
     </main>
   );
