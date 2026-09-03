@@ -314,6 +314,67 @@ so the whole session is drivable from one button.
 
 ---
 
+## What 300 players actually costs
+
+Measured on one Node process, a full 6-question quiz with **300 concurrent students**
+(`PLAYERS=300 npm run loadtest`):
+
+| | |
+|---|---|
+| Server CPU | **2.2 seconds total — 5.2% of one core** for the whole quiz |
+| Memory | 93 MB RSS |
+| Answer latency | p50 1ms, p95 1ms, max 6ms |
+| Upload from server | 5.2 MB total, **0.97 Mbps average** |
+| Biggest burst | **756 KB**, when a question opens and every student is sent their own scrambled copy |
+
+The design is why the numbers are small: the server sends one frame per state change
+rather than per tick, and clients run their own countdown against a synced clock.
+
+**What this means for hosting:**
+
+- A **$7/mo Render Starter (0.5 CPU)** has roughly 10x the headroom needed. This is the
+  right answer for 300 people.
+- **Render free (0.1 CPU)** is ~52% used on average, which sounds fine but leaves nothing
+  for the spikes when a question opens, and Render's terms allow them to suspend a free
+  service generating "uncommonly high volume of traffic". Fine for 30 students, a gamble
+  at 300.
+- **A laptop** is far more capable than either — 5.2% of one core is under 1% of a modern
+  laptop. See below.
+
+## Hosting it from a laptop
+
+Viable, and CPU is not the constraint — upload bandwidth and reliability are.
+
+```bash
+cd server && npm start
+cd client && npm run build && npm start
+node scripts/preview-prod.mjs                      # one origin on :8080
+npx cloudflared tunnel --url http://localhost:8080 # public HTTPS URL
+```
+
+**Bandwidth needed for 300 players:** about **1 Mbps sustained upload**, with **756 KB
+bursts** each time a question opens. On a 10 Mbps upload that burst clears in ~0.6s; on a
+2 Mbps ADSL uplink it takes ~3s, and students on the slow end lose a slice of their
+answering time, because the deadline is fixed in server time. Check your *upload* speed,
+not download — they are very different numbers on most home connections.
+
+**Latency across a country is not the problem it sounds like.** The countdown is computed
+locally from a synced server clock, so a student 2,000 km away sees the same timer as one
+in the next room. Distance only shifts when their answer arrives, and a 50ms difference on
+a 20-second question is 0.25% of the speed component — well inside the noise of human
+reaction time.
+
+**What will actually bite you:**
+
+- The laptop sleeping, or Wi-Fi dropping, ends every room instantly.
+- Cloudflare *quick* tunnels are throttled and get a new URL each run. For 300 people use
+  a named tunnel on your own domain (still free) rather than the throwaway one.
+- Use ethernet and mains power, and disable sleep.
+- The same laptop is usually also driving the projector, so give it the headroom.
+
+Good for a one-off event you control. For anything recurring, $7/mo of hosting removes an
+entire category of risk.
+
 ## Anti-cheating
 
 **Randomised answer order.** Each student's option order comes from a seeded Fisher–Yates shuffle on
