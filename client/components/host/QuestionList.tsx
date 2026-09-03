@@ -44,13 +44,13 @@ export function QuestionList({
   onAdd: (type: Question['type']) => void;
 }) {
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-w-0 flex-col">
       <div className="mb-3 flex items-baseline gap-2 px-1">
         <span className="eyebrow">Questions</span>
         <span className="ml-auto text-sm font-semibold text-slate-500 nums">{questions.length}</span>
       </div>
 
-      <ol className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
+      <ol className="min-h-0 min-w-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
         {questions.map((q, i) => {
           const active = i === selectedIndex;
           const needsWork = isIncomplete(q);
@@ -59,7 +59,7 @@ export function QuestionList({
             <li key={q.id}>
               <div
                 className={
-                  'group relative flex items-center gap-2.5 rounded-xl border px-2.5 py-2.5 transition ' +
+                  'group relative flex min-w-0 items-center gap-2.5 rounded-xl border px-2.5 py-2.5 transition ' +
                   (active
                     ? 'border-brand-500/50 bg-brand-500/10'
                     : 'border-transparent bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.06]')
@@ -110,12 +110,16 @@ export function QuestionList({
                   </span>
                 </button>
 
-                {/* Reorder + delete stay hidden until the row is hovered or
-                    selected, so the rail reads as a list, not a toolbar. */}
+                {/* Hidden until hover so the rail reads as a list, not a
+                    toolbar - but ONLY on devices that can hover. A touchscreen
+                    has no hover state, so on a phone these would simply never
+                    appear and the questions could not be reordered at all. */}
                 <div
                   className={
                     'flex shrink-0 flex-col gap-0.5 transition ' +
-                    (active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+                    (active
+                      ? 'opacity-100'
+                      : 'opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100')
                   }
                 >
                   <button
@@ -123,7 +127,7 @@ export function QuestionList({
                     onClick={() => onMove(i, -1)}
                     disabled={i === 0}
                     aria-label={'Move question ' + (i + 1) + ' up'}
-                    className="rounded px-1 text-[10px] leading-none text-slate-500 transition hover:text-slate-100 disabled:opacity-20"
+                    className="rounded px-2 py-0.5 text-[10px] leading-none text-slate-500 transition hover:text-slate-100 disabled:opacity-20"
                   >
                     ▲
                   </button>
@@ -132,7 +136,7 @@ export function QuestionList({
                     onClick={() => onMove(i, 1)}
                     disabled={i === questions.length - 1}
                     aria-label={'Move question ' + (i + 1) + ' down'}
-                    className="rounded px-1 text-[10px] leading-none text-slate-500 transition hover:text-slate-100 disabled:opacity-20"
+                    className="rounded px-2 py-0.5 text-[10px] leading-none text-slate-500 transition hover:text-slate-100 disabled:opacity-20"
                   >
                     ▼
                   </button>
@@ -144,8 +148,10 @@ export function QuestionList({
                   disabled={questions.length === 1}
                   aria-label={'Delete question ' + (i + 1)}
                   className={
-                    'shrink-0 rounded px-1 text-xs text-slate-600 transition hover:text-rose-300 disabled:opacity-0 ' +
-                    (active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+                    'shrink-0 rounded px-2 py-1 text-xs text-slate-600 transition hover:text-rose-300 disabled:opacity-0 ' +
+                    (active
+                      ? 'opacity-100'
+                      : 'opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100')
                   }
                 >
                   ✕

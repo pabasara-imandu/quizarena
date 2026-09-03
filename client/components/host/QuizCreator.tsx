@@ -208,7 +208,7 @@ export function QuizCreator({ onLaunch, busy, error }: Props) {
       <div className="grid gap-5 lg:grid-cols-[290px_1fr] lg:items-start">
         {/* On a narrow screen the rail stacks above the editor, so it is capped
             short - a full-height list would push the editor off the page. */}
-        <aside className="surface max-h-[19rem] p-3 lg:sticky lg:top-[7.5rem] lg:max-h-[calc(100vh-11rem)]">
+        <aside className="surface min-w-0 max-h-[19rem] p-3 lg:sticky lg:top-[7.5rem] lg:max-h-[calc(100vh-11rem)]">
           <QuestionList
             questions={questions}
             selectedIndex={selected}
@@ -219,7 +219,7 @@ export function QuizCreator({ onLaunch, busy, error }: Props) {
           />
         </aside>
 
-        <section className="surface p-5 sm:p-7">
+        <section className="surface min-w-0 p-5 sm:p-7">
           {current && (
             <QuestionEditor
               key={current.id}
