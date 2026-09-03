@@ -1,21 +1,28 @@
 # Netlify hosts the CLIENT half only.
 #
 # The quiz server is a stateful Socket.IO process and cannot run on Netlify
-# Functions — they are serverless and cannot hold a WebSocket open for a
-# twenty-minute quiz. Deploy server/ to an always-on host and point
-# NEXT_PUBLIC_SERVER_URL at it. See DEPLOY.md.
+# Functions - they are serverless and cannot hold a WebSocket open for a
+# twenty-minute quiz. Deploy server/ to an always-on host (see DEPLOY.md) and
+# point NEXT_PUBLIC_SERVER_URL at it.
 
 [build]
-  # The Next.js app lives in a subdirectory; paths below are relative to it.
+  # The Next.js app lives in a subdirectory; the command runs from here.
   base = "client"
   command = "npm run build"
-  publish = ".next"
+
+  # NOTE: `publish` is deliberately NOT set.
+  #
+  # Netlify auto-detects Next.js and deploys it through its OpenNext adapter,
+  # which decides where the output lives. Setting `publish = ".next"` overrides
+  # that and makes Netlify serve the raw build folder as a plain static site -
+  # and since a Next app has no index.html in there, every route 404s with
+  # "Page not found". Leave it to the adapter.
 
 [build.environment]
   NODE_VERSION = "22"
   # Netlify's adapter needs a normal Next build, not a standalone one.
   BUILD_STANDALONE = "false"
 
-# Set NEXT_PUBLIC_SERVER_URL in the Netlify UI (Site settings -> Environment
-# variables) to your server's public HTTPS URL. It is baked in at build time,
-# so changing it needs a redeploy, not just a restart.
+# Set NEXT_PUBLIC_SERVER_URL in the Netlify UI (Site configuration ->
+# Environment variables) to your server's public HTTPS URL. It is compiled in
+# at build time, so changing it needs a redeploy, not just a save.
