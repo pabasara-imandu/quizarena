@@ -59,6 +59,10 @@ const config: Config = {
         },
         fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
         sweep: { '0%': { transform: 'translateX(-100%)' }, '100%': { transform: 'translateX(200%)' } },
+        logoFloat: {
+          '0%,100%': { transform: 'translateY(0) rotateX(0deg) rotateY(0deg)' },
+          '50%': { transform: 'translateY(-6px) rotateX(2.5deg) rotateY(-2deg)' },
+        },
       },
       animation: {
         pop: 'pop 240ms cubic-bezier(0.2, 0.9, 0.3, 1.15) both',
@@ -67,6 +71,7 @@ const config: Config = {
         slideIn: 'slideIn 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both',
         fadeIn: 'fadeIn 180ms ease-out both',
         sweep: 'sweep 1.6s ease-in-out infinite',
+        logoFloat: 'logoFloat 7s ease-in-out infinite',
       },
     },
   },

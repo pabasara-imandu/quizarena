@@ -138,6 +138,41 @@ body {
 
 /* ------------------------------------------------------------ result reveal */
 
+/* ------------------------------------------------------------ society logo */
+
+/* The travelling highlight. Masked to the crest by the component, so all this
+   has to do is move a bright band across its own box. `background-size` is
+   wider than the box so the band starts and ends fully off the artwork. */
+.logo-glint {
+  background-image: linear-gradient(
+    100deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.35) 46%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(167, 152, 255, 0.55) 54%,
+    transparent 60%
+  );
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  /* Long pause between passes: a glint that never stops is a strobe. */
+  animation: logo-glint 6.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes logo-glint {
+  0%,
+  8% {
+    background-position: 150% 0;
+  }
+  38%,
+  100% {
+    background-position: -50% 0;
+  }
+}
+
 @keyframes mark-draw {
   to {
     stroke-dashoffset: 0;
