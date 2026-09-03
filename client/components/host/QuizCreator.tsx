@@ -207,8 +207,13 @@ export function QuizCreator({ onLaunch, busy, error }: Props) {
       {/* ---------------------------------------------------------- workspace */}
       <div className="grid gap-5 lg:grid-cols-[290px_1fr] lg:items-start">
         {/* On a narrow screen the rail stacks above the editor, so it is capped
-            short - a full-height list would push the editor off the page. */}
-        <aside className="surface min-w-0 max-h-[19rem] p-3 lg:sticky lg:top-[7.5rem] lg:max-h-[calc(100vh-11rem)]">
+            short - a full-height list would push the editor off the page.
+            `flex flex-col` is load-bearing, not decoration: a max-height alone
+            gives its children no definite height to resolve against, so the
+            list inside would grow to its full content height and spill out of
+            the panel instead of scrolling. Opaque rather than translucent
+            because a scrolling list under a backdrop-blur is a repaint trap. */}
+        <aside className="surface-solid flex min-w-0 flex-col max-h-[19rem] p-3 lg:sticky lg:top-[7.5rem] lg:max-h-[calc(100vh-11rem)]">
           <QuestionList
             questions={questions}
             selectedIndex={selected}

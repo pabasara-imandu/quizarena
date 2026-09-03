@@ -44,7 +44,7 @@ export function QuestionList({
   onAdd: (type: Question['type']) => void;
 }) {
   return (
-    <div className="flex h-full min-w-0 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="mb-3 flex items-baseline gap-2 px-1">
         <span className="eyebrow">Questions</span>
         <span className="ml-auto text-sm font-semibold text-slate-500 nums">{questions.length}</span>

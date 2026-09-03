@@ -107,7 +107,10 @@ export function HostLive({
           : 'Next question →';
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_320px] lg:items-start">
+    <>
+      {/* Clears the fixed control bar so the last row of the leaderboard and
+          the End quiz button are never stuck underneath each other. */}
+      <div className="grid gap-5 pb-24 lg:grid-cols-[1fr_320px] lg:items-start">
       <ReactionOverlay bursts={reactionBurst} />
 
       {/* -------------------------------------------------------- main stage */}
@@ -218,25 +221,12 @@ export function HostLive({
           </div>
         )}
 
-        {/* Controls sit in their own bar so the primary action is never hunting
-            for space next to the question. */}
-        <div className="surface sticky bottom-4 z-10 flex flex-wrap items-center gap-2 p-3">
-          {phase === 'question' && (
-            <button className="btn-secondary" type="button" onClick={onSkipTimer} disabled={busy}>
-              Skip the timer
-            </button>
-          )}
-          <button className="btn-primary btn-lg" type="button" onClick={onNext} disabled={busy}>
-            {nextLabel}
-          </button>
-          <button className="btn-danger ml-auto" type="button" onClick={onEnd} disabled={busy}>
-            End quiz
-          </button>
-        </div>
       </div>
 
       {/* ----------------------------------------------------------- sidebar */}
-      <aside className="surface p-4 lg:sticky lg:top-4">
+      {/* Capped and scrollable so a long roster cannot run down past the
+          fixed control bar and hide its own last rows behind it. */}
+      <aside className="surface p-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto">
         {/* One panel at a time. The old layout stacked the leaderboard and the
             integrity feed, so both were half-visible and neither was readable. */}
         <Segmented
@@ -329,7 +319,44 @@ export function HostLive({
           )}
         </div>
       </aside>
-    </div>
+      </div>
+
+      {/* Fixed to the viewport, not sticky inside the column.
+          `sticky bottom-4` only holds while its own column is on screen, and
+          the scores panel stacks below that column on a phone and outgrows it
+          on a laptop - so the button to advance the quiz scrolled off the top
+          at exactly the moment the host was reading the leaderboard and
+          reaching for it. Fixed, it is always under the thumb. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.07] bg-ink-950/92 px-4 py-3 backdrop-blur-xl sm:px-6">
+        <div className="mx-auto flex max-w-6xl items-center gap-2">
+          {phase === 'question' && (
+            <button
+              className="btn-secondary shrink-0"
+              type="button"
+              onClick={onSkipTimer}
+              disabled={busy}
+            >
+              <span className="sm:hidden">Skip timer</span>
+              <span className="hidden sm:inline">Skip the timer</span>
+            </button>
+          )}
+          {/* Grows to fill a phone's width: the one control the host reaches
+              for under time pressure should be the easiest thing to hit. */}
+          <button
+            className="btn-primary btn-lg min-w-0 flex-1 sm:flex-none"
+            type="button"
+            onClick={onNext}
+            disabled={busy}
+          >
+            <span className="truncate">{nextLabel}</span>
+          </button>
+          <button className="btn-danger ml-auto shrink-0" type="button" onClick={onEnd} disabled={busy}>
+            <span className="sm:hidden">End</span>
+            <span className="hidden sm:inline">End quiz</span>
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 

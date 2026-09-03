@@ -30,6 +30,9 @@ export function Toggle({
         type="button"
         role="switch"
         aria-checked={checked}
+        // A <label> names form controls, not buttons, so without this every
+        // setting announced as an unnamed switch to a screen reader.
+        aria-label={label}
         onClick={() => onChange(!checked)}
         className={
           'relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ' +

@@ -146,20 +146,32 @@ export function StudentQuiz(props: Props) {
           </div>
 
           <div className="mt-4 space-y-3">
-            <p className="text-center text-sm text-slate-400">
-              {hasAnswered ? 'Answer locked in. Sit tight…' : 'Answer faster to score more points.'}
-            </p>
+            {hasAnswered ? (
+              /* The wait between answering and the reveal is the longest a
+                 student sits still, and it used to be one grey line under a
+                 dead grid. Say plainly that the answer is in and that the
+                 hold-up is other people, not them. */
+              <WaitingStrip text="Answer locked in — waiting for the rest of the class…" />
+            ) : (
+              <>
+                <p className="text-center text-sm text-slate-400">
+                  Answer faster to score more points.
+                </p>
 
-            {/* Skip tells the server "I'm done thinking" so the room can move
-                on without waiting out the clock. */}
-            {allowSkip && !hasAnswered && !blocked && (
-              <button
-                type="button"
-                onClick={onSkip}
-                className="btn-ghost mx-auto flex"
-              >
-                Skip this question →
-              </button>
+                {/* Skip tells the server "I'm done thinking" so the room can
+                    move on without waiting out the clock. Given a border and
+                    full thumb-width: as bare ghost text at the very bottom
+                    edge of a phone it read as a caption and got missed. */}
+                {allowSkip && !blocked && (
+                  <button
+                    type="button"
+                    onClick={onSkip}
+                    className="btn-secondary mx-auto flex w-full max-w-xs justify-center"
+                  >
+                    Skip this question →
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -215,6 +227,19 @@ export function StudentQuiz(props: Props) {
         </div>
       )}
 
+      {/* The reveal and the scores are dead ends until the teacher clicks.
+          Without this the student stares at a frozen screen with no way to
+          tell whether the quiz has broken or everyone is simply waiting. */}
+      {(phase === 'reveal' || phase === 'leaderboard') && !blocked && (
+        <WaitingStrip
+          text={
+            question && question.index + 1 >= question.total
+              ? 'Waiting for your teacher to finish the quiz…'
+              : 'Waiting for your teacher to start the next question…'
+          }
+        />
+      )}
+
       {/* --------------------------------------------------------- overlays */}
       {locked && <LockedOverlay strikes={strikes} strikeLimit={strikeLimit} />}
       {!locked && mustReturnToFullscreen && phase !== 'ended' && (
@@ -226,20 +251,45 @@ export function StudentQuiz(props: Props) {
 
 /* -------------------------------------------------------------------------- */
 
+/** Three breathing dots. The one signal that something is still running. */
+function Dots({ size = 'h-2.5 w-2.5' }: { size?: string }) {
+  return (
+    <span className="flex shrink-0 items-center gap-2" aria-hidden>
+      {[0, 150, 300].map((delay) => (
+        <span
+          key={delay}
+          className={'animate-breathe rounded-full bg-brand-400 ' + size}
+          style={{ animationDelay: delay + 'ms' }}
+        />
+      ))}
+    </span>
+  );
+}
+
+/**
+ * A one-line "you are waiting on someone else" bar.
+ *
+ * Used wherever the student has finished their part and the room is waiting
+ * on the teacher or the clock, so a stalled screen never looks like a crash.
+ */
+function WaitingStrip({ text }: { text: string }) {
+  return (
+    <div
+      role="status"
+      className="mt-4 flex items-center justify-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.04] px-4 py-3.5"
+    >
+      <Dots size="h-2 w-2" />
+      <p className="text-sm font-medium text-slate-300">{text}</p>
+    </div>
+  );
+}
+
 /** Generic holding screen. Nothing in this app should ever render blank. */
 function Waiting({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <div className="flex h-14 items-center gap-2">
-        <span className="h-2.5 w-2.5 animate-breathe rounded-full bg-brand-400" />
-        <span
-          className="h-2.5 w-2.5 animate-breathe rounded-full bg-brand-400"
-          style={{ animationDelay: '150ms' }}
-        />
-        <span
-          className="h-2.5 w-2.5 animate-breathe rounded-full bg-brand-400"
-          style={{ animationDelay: '300ms' }}
-        />
+      <div className="flex h-14 items-center">
+        <Dots />
       </div>
       <p className="mt-2 font-display text-xl font-bold">{title}</p>
       <p className="mt-1 max-w-xs text-sm text-slate-400">{detail}</p>
