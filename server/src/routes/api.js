@@ -24,10 +24,16 @@ const upload = multer({
 });
 
 api.get('/health', (_req, res) => {
+  const cpu = process.cpuUsage();
   res.json({
     status: 'ok',
     uptimeSec: Math.round(process.uptime()),
     memoryMb: Math.round(process.memoryUsage().heapUsed / 1048576),
+    rssMb: Math.round(process.memoryUsage().rss / 1048576),
+    // Cumulative CPU milliseconds. Sample this before and after a load run to
+    // see what a quiz actually costs - which is the number that decides
+    // whether a 0.1-vCPU instance can carry a given class size.
+    cpuMs: Math.round((cpu.user + cpu.system) / 1000),
     ...roomStore.stats,
   });
 });
