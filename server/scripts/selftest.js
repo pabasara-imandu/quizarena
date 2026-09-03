@@ -11,11 +11,26 @@ import { buildMatrixCsv } from '../src/game/exportCsv.js';
 import { startQuestion, openQuestion, snapshotFor } from '../src/game/flow.js';
 import { detectImageType, imageStore } from '../src/state/imageStore.js';
 import { csvCell } from '../src/game/exportCsv.js';
+import express from 'express';
+import helmet from 'helmet';
+import { api } from '../src/routes/api.js';
 
 let passed = 0;
 const test = (name, fn) => {
   try {
     fn();
+    passed++;
+    console.log('  ok  ' + name);
+  } catch (err) {
+    console.error('  FAIL  ' + name + '\n        ' + err.message);
+    process.exitCode = 1;
+  }
+};
+
+/** Same, for the checks that have to go over the wire to mean anything. */
+const asyncTest = async (name, fn) => {
+  try {
+    await fn();
     passed++;
     console.log('  ok  ' + name);
   } catch (err) {
@@ -435,6 +450,44 @@ test('matrix export has one column group per question and one row per student', 
   assert.ok(csv.includes('Per-question summary'));
   assert.ok(csv.includes('Answer breakdown'));
   assert.ok(csv.includes('Ada'));
+});
+
+console.log('\nimage headers');
+
+/**
+ * Goes over a real socket, because the bug this guards against is invisible to
+ * every unit test: the bytes were served perfectly and the store was correct,
+ * but helmet's default Cross-Origin-Resource-Policy: same-origin made the
+ * browser refuse to paint the image in an <img> on the app's own origin. It
+ * still opened fine in a tab - a top-level navigation is not subject to CORP -
+ * so it looked like a front-end fault rather than a header.
+ */
+await asyncTest('an uploaded image may be embedded from the app on another origin', async () => {
+  const app = express();
+  app.use(helmet()); // exactly as src/index.js does, so the override is proven
+  app.use('/api', api);
+  const server = app.listen(0);
+  await new Promise((r) => server.once('listening', r));
+  const base = 'http://127.0.0.1:' + server.address().port;
+
+  try {
+    const body = new FormData();
+    body.append('file', new Blob([PNG], { type: 'image/png' }), 'a.png');
+    const up = await (await fetch(base + '/api/images', { method: 'POST', body })).json();
+    assert.ok(up.id, 'upload returned an id');
+
+    const res = await fetch(base + '/api/images/' + up.id);
+    assert.equal(res.status, 200);
+    assert.equal(
+      res.headers.get('cross-origin-resource-policy'),
+      'cross-origin',
+      'without this the browser refuses to render the image in an <img>'
+    );
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(res.headers.get('content-type'), 'image/png');
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
 });
 
 console.log('\n' + passed + ' checks passed' + (process.exitCode ? ' (with failures above)' : ''));
