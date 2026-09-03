@@ -6,23 +6,31 @@
 # point NEXT_PUBLIC_SERVER_URL at it.
 
 [build]
-  # The Next.js app lives in a subdirectory; the command runs from here.
+  # The Next.js app lives in a subdirectory; paths below are relative to it.
   base = "client"
   command = "npm run build"
 
-  # NOTE: `publish` is deliberately NOT set.
-  #
-  # Netlify auto-detects Next.js and deploys it through its OpenNext adapter,
-  # which decides where the output lives. Setting `publish = ".next"` overrides
-  # that and makes Netlify serve the raw build folder as a plain static site -
-  # and since a Next app has no index.html in there, every route 404s with
-  # "Page not found". Leave it to the adapter.
+  # Must be set, and must NOT equal `base` - the Next runtime rejects that
+  # outright ("publish directory cannot be the same as the base directory").
+  # The runtime rewrites this directory into a deployable site; served raw it
+  # would 404 on every route, because a Next build has no index.html.
+  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "22"
-  # Netlify's adapter needs a normal Next build, not a standalone one.
+  # Netlify's runtime needs a normal Next build, not a standalone one.
   BUILD_STANDALONE = "false"
 
+# Declared explicitly rather than left to auto-detection.
+#
+# Netlify usually detects Next.js on its own, but not reliably when the app
+# sits in a subdirectory behind `base`. When detection fails the build still
+# goes green - it just publishes a raw .next folder, and every route returns
+# "Page not found". The plugin is also a devDependency in client/package.json
+# so the exact version is pinned rather than resolved at deploy time.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
 # Set NEXT_PUBLIC_SERVER_URL in the Netlify UI (Site configuration ->
-# Environment variables) to your server's public HTTPS URL. It is compiled in
-# at build time, so changing it needs a redeploy, not just a save.
+# Environment variables) to your Render server URL. It is compiled in at build
+# time, so changing it needs a redeploy, not just a save.
