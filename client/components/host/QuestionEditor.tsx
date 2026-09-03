@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { QuestionMedia } from '@/components/ui/QuestionMedia';
+import { ImagePicker } from '@/components/ui/ImagePicker';
 import type { Option, Question } from '@/lib/types';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -84,30 +85,16 @@ export function QuestionEditor({
           onChange={(e) => onPatch({ text: e.target.value })}
         />
 
-        {showMedia ? (
+        {showMedia || question.image ? (
           <div className="mt-3 animate-rise">
-            <label className="field-label" htmlFor={'img-' + question.id}>
-              Image URL
-            </label>
-            <div className="flex gap-2">
-              <input
-                id={'img-' + question.id}
-                className="field"
-                placeholder="https://…"
-                value={question.image ?? ''}
-                onChange={(e) => onPatch({ image: e.target.value || null })}
-              />
-              <button
-                type="button"
-                className="btn-ghost shrink-0"
-                onClick={() => {
-                  onPatch({ image: null });
-                  setShowMedia(false);
-                }}
-              >
-                Remove
-              </button>
-            </div>
+            <ImagePicker
+              label="Image"
+              value={question.image}
+              onChange={(url) => {
+                onPatch({ image: url });
+                if (!url) setShowMedia(false);
+              }}
+            />
             <QuestionMedia src={question.image} className="mt-3" maxHeight="11rem" />
           </div>
         ) : (
@@ -288,24 +275,16 @@ function ChoiceFields({
               </div>
 
               {showImageField && !locked && (
-                <div className="mt-1.5 flex animate-rise items-center gap-2 pl-12">
-                  <input
-                    className="field py-1.5 text-[13px]"
-                    placeholder="Answer image URL"
-                    value={option.image ?? ''}
-                    onChange={(e) => onPatchOption(oi, { image: e.target.value || null })}
+                <div className="mt-1.5 animate-rise pl-12">
+                  <ImagePicker
+                    label="Answer image"
+                    compact
+                    value={option.image}
+                    onChange={(url) => {
+                      onPatchOption(oi, { image: url });
+                      if (!url) setImageFor(null);
+                    }}
                   />
-                  {option.image && (
-                    <img
-                      src={option.image}
-                      alt=""
-                      referrerPolicy="no-referrer"
-                      className="h-9 w-9 shrink-0 rounded-lg object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.visibility = 'hidden';
-                      }}
-                    />
-                  )}
                 </div>
               )}
             </div>

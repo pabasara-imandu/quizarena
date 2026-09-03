@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 import { roomStore } from '../state/roomStore.js';
+import { imageStore } from '../state/imageStore.js';
 import { sampleQuiz } from '../game/sampleQuiz.js';
 import { parseQuizWorkbook } from '../game/importQuiz.js';
 import { generateQuiz } from '../game/generateQuiz.js';
@@ -35,6 +36,7 @@ api.get('/health', (_req, res) => {
     // whether a 0.1-vCPU instance can carry a given class size.
     cpuMs: Math.round((cpu.user + cpu.system) / 1000),
     ...roomStore.stats,
+    ...imageStore.stats,
   });
 });
 
@@ -56,6 +58,75 @@ api.get('/rooms/:pin', (req, res) => {
 });
 
 api.get('/sample-quiz', (_req, res) => res.json(sampleQuiz));
+
+/* -------------------------------------------------------------------------- */
+/* Image upload                                                               */
+/* -------------------------------------------------------------------------- */
+
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  // A little above the store's own ceiling so an oversized file is rejected
+  // with a useful message rather than a truncated stream.
+  limits: { fileSize: 1.5 * 1024 * 1024, files: 1 },
+});
+
+/**
+ * The absolute base URL clients should use to fetch images back.
+ *
+ * It must be absolute: with split hosting (client on Netlify, server on
+ * Render) a relative /api/images/... would resolve against the Netlify
+ * origin, where nothing is listening. Derived from the request so it works on
+ * any domain without configuration; PUBLIC_URL overrides it if you sit behind
+ * something that mangles the headers.
+ */
+function publicBase(req) {
+  const configured = (process.env.PUBLIC_URL || '').trim().replace(/\/+$/, '');
+  if (configured) return configured;
+  return req.protocol + '://' + req.get('host');
+}
+
+api.post('/images', imageUpload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file was uploaded.' });
+
+  const result = imageStore.put(req.file.buffer);
+  if (!result.ok) {
+    const message =
+      result.reason === 'too_large'
+        ? 'That image is too large. Keep it under ' +
+          Math.round(result.limit / 1024) +
+          ' KB - the picker normally shrinks it for you.'
+        : 'That file is not a JPEG, PNG, WebP or GIF image.';
+    return res.status(400).json({ error: message });
+  }
+
+  res.json({
+    id: result.id,
+    url: publicBase(req) + '/api/images/' + result.id,
+    bytes: result.bytes,
+    mime: result.mime,
+    deduped: result.deduped,
+  });
+});
+
+api.get('/images/:id', (req, res) => {
+  const entry = imageStore.get(String(req.params.id));
+  if (!entry) {
+    return res.status(404).json({ error: 'That image has expired or was never uploaded.' });
+  }
+
+  // Content-addressed, so the bytes behind a URL can never change: cache it
+  // hard. This is what stops 300 students re-downloading the same picture.
+  res.set({
+    'Content-Type': entry.mime,
+    'Content-Length': String(entry.bytes),
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    // Belt and braces alongside helmet: never let a browser reinterpret these
+    // bytes as anything but the image type we detected.
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Disposition': 'inline',
+  });
+  res.end(entry.buffer);
+});
 
 /* -------------------------------------------------------------------------- */
 /* Spreadsheet import                                                         */
