@@ -4,7 +4,7 @@ A real-time live quizzing platform (Kahoot/Quizizz style) built for a whole clas
 
 **Verified under load:** 200 concurrent students in a single room, 1,200 questions and 1,200 answers
 delivered at **p50 1ms / p95 3ms**. A 150-student emoji tap-storm (6,964 taps) compressed to **6
-frames** on the host. 17 engine self-tests pass. See [Testing](#testing).
+frames** on the host. 22 engine self-tests pass. See [Testing](#testing).
 
 ---
 
@@ -98,7 +98,7 @@ you ship it.
 ## Testing
 
 ```bash
-cd server && npm run selftest          # 17 engine checks, no server needed
+cd server && npm run selftest          # 22 engine checks, no server needed
 cd server && npm run dev               # then, in another terminal:
 cd server && PLAYERS=200 npm run loadtest
 ```
@@ -123,10 +123,30 @@ unless the question is marked case-sensitive. `"  tOkYo "` matches `Tokyo`. A qu
 several spellings (`Tokyo | Tokio | Tōkyō`) because a student should not lose a mark to a macron
 they cannot type on a school keyboard.
 
-**Images** can be attached to a question and to each individual answer option. URLs are validated
-server-side and only absolute `http(s)` is allowed — `javascript:` and `data:` are rejected outright
-rather than sanitised, because these strings end up in a `src` attribute on 100 student devices. A
-broken image link never eats the question; it just disappears.
+**Images** can be attached to a question and to each individual answer option, either **uploaded
+from the device** or pasted as a URL.
+
+Uploads need no database and no object store. The browser re-encodes the picture to ~1600px WebP
+before it leaves the device — measured: a 3.7 MB photo became **117 KB**, a 32x reduction — and the
+server keeps the bytes in a content-addressed in-memory store, serving them from
+`/api/images/<hash>` with `immutable` caching. Because the id is a hash of the content, uploading
+the same picture twice costs nothing and every student fetches it exactly once.
+
+Doing the resize client-side is not an optimisation, it is the feature: the payload sent to students
+carries a *URL*, not the bytes. Inlining a 40 KB image as base64 would multiply by 300 students into
+a 12 MB burst per question and take the room down.
+
+> **The honest limitation:** uploaded images live in RAM. They are lost on every server restart, and
+> expire after 12 hours. On a free tier that sleeps when idle, an image uploaded before a coffee
+> break may be gone when you come back — build the quiz and run it in one sitting, or use a
+> non-sleeping instance. For permanent artwork, paste URLs, or wire the store to Cloudflare R2 /
+> Supabase Storage (both have free tiers).
+
+URLs are validated server-side and only absolute `http(s)` is allowed. **SVG is rejected outright**,
+for uploads and URLs alike: it is a document format that can carry scripts, and serving one from our
+own origin would hand an uploader a stored-XSS primitive. Upload types are detected from the file's
+**magic bytes**, never from its name or its declared Content-Type — a text file renamed `.png` is
+refused. A broken image link never eats the question; it just disappears.
 
 ## Scoring
 

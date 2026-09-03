@@ -9,6 +9,7 @@ import { streakMultiplier } from '../src/game/scoring.js';
 import { matchesShortAnswer } from '../src/game/answerMatch.js';
 import { buildMatrixCsv } from '../src/game/exportCsv.js';
 import { startQuestion, openQuestion, snapshotFor } from '../src/game/flow.js';
+import { detectImageType, imageStore } from '../src/state/imageStore.js';
 import { csvCell } from '../src/game/exportCsv.js';
 
 let passed = 0;
@@ -339,6 +340,66 @@ test('a snapshot during reveal carries the answer, so no phase renders blank', (
   room.currentIndex = 3; // short answer
   const shortSnap = snapshotFor(room, p);
   assert.deepEqual(shortSnap.reveal.acceptedAnswers, ['Paris']);
+});
+
+console.log('\nimage store');
+
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR4nGP8z8DAwMDAxMDAwAAADRQBBwUBCwAAAABJRU5ErkJggg==',
+  'base64'
+);
+
+test('an SVG is never accepted as an image', () => {
+  // SVG is a document format that can carry <script> and remote references.
+  // Serving one from our own origin would hand an uploader a stored-XSS
+  // primitive, so it is rejected outright rather than sanitised.
+  const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+  assert.equal(detectImageType(svg), null);
+  assert.deepEqual(imageStore.put(svg), { ok: false, reason: 'not_an_image' });
+});
+
+test('the type comes from the bytes, not the filename', () => {
+  const lying = Buffer.from('this is plain text that was renamed to .png');
+  assert.equal(detectImageType(lying), null);
+  assert.equal(detectImageType(PNG)?.mime, 'image/png');
+});
+
+test('identical bytes are stored once and share a URL', () => {
+  const first = imageStore.put(PNG);
+  const second = imageStore.put(PNG);
+  assert.equal(first.ok, true);
+  assert.equal(second.id, first.id, 'content-addressed, so the id is the same');
+  assert.equal(second.deduped, true);
+  assert.ok(imageStore.get(first.id), 'readable back out');
+});
+
+test('an oversized image is refused, with its limit', () => {
+  const huge = Buffer.concat([PNG, Buffer.alloc(imageStore.maxEntryBytes + 1)]);
+  const res = imageStore.put(huge);
+  assert.equal(res.ok, false);
+  assert.equal(res.reason, 'too_large');
+  assert.equal(res.limit, imageStore.maxEntryBytes);
+});
+
+test('the store evicts rather than growing past its ceiling', () => {
+  // A tiny clone proves the eviction path without allocating 64MB.
+  const tiny = Object.create(Object.getPrototypeOf(imageStore));
+  Object.assign(tiny, {
+    maxTotalBytes: 400,
+    maxEntryBytes: 300,
+    ttlMs: 60_000,
+    entries: new Map(),
+    totalBytes: 0,
+  });
+
+  const make = (n) => Buffer.concat([PNG, Buffer.alloc(n)]);
+  tiny.put(make(50));
+  tiny.put(make(60));
+  tiny.put(make(70));
+  tiny.put(make(200));
+
+  assert.ok(tiny.totalBytes <= tiny.maxTotalBytes, 'ceiling respected');
+  assert.ok(tiny.entries.size >= 1, 'the newest entry survived');
 });
 
 console.log('\nexport');
