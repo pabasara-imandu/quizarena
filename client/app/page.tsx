@@ -1,16 +1,23 @@
 import Link from 'next/link';
 import { SocietyLogo } from '@/components/ui/SocietyLogo';
+import { Tilt3D } from '@/components/ui/Tilt3D';
 
 export default function HomePage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center px-5 py-16">
       <div className="text-center">
         <span className="chip-brand mb-6">Live · real-time · one PIN</span>
-        <h1 className="font-display text-6xl font-extrabold tracking-tight sm:text-7xl">
-          Quiz<span className="text-brand-400">Arena</span>
-        </h1>
+        {/* Tilt3D hugs its child, so it needs a block of its own - otherwise
+            the chip above flows onto the same line as the wordmark. */}
+        <div>
+          <Tilt3D>
+            <h1 className="font-display text-6xl font-extrabold tracking-tight sm:text-7xl">
+              Quiz<span className="text-brand-400">Arena</span>
+            </h1>
+          </Tilt3D>
+        </div>
         {/* The crest and the credit read as one block: whose page this is. */}
-        <SocietyLogo className="mx-auto mt-9 w-[15rem] sm:w-[19rem]" />
+        <SocietyLogo className="mx-auto mt-9 w-[9.5rem] sm:w-[11.5rem]" />
 
         <p className="mt-5 text-lg font-medium text-slate-300">
           Hosted by <span className="text-brand-300">Ananda College ICT Society</span>
