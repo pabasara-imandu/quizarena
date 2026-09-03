@@ -3,6 +3,7 @@ node_modules/
 
 # builds
 .next/
+.netlify/
 out/
 dist/
 *.tsbuildinfo
