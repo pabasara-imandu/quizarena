@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SocietyLogo } from '@/components/ui/SocietyLogo';
 
 export default function HomePage() {
   return (
@@ -8,6 +9,9 @@ export default function HomePage() {
         <h1 className="font-display text-6xl font-extrabold tracking-tight sm:text-7xl">
           Quiz<span className="text-brand-400">Arena</span>
         </h1>
+        {/* The crest and the credit read as one block: whose page this is. */}
+        <SocietyLogo className="mx-auto mt-9 w-[15rem] sm:w-[19rem]" />
+
         <p className="mt-5 text-lg font-medium text-slate-300">
           Hosted by <span className="text-brand-300">Ananda College ICT Society</span>
         </p>
