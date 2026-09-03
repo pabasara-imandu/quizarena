@@ -124,6 +124,13 @@ api.get('/images/:id', (req, res) => {
     // bytes as anything but the image type we detected.
     'X-Content-Type-Options': 'nosniff',
     'Content-Disposition': 'inline',
+    // Helmet defaults every response to same-origin, which is right for an API
+    // but fatal here: the app is served from another origin (localhost:3000 in
+    // dev, Netlify in production), so the browser refused to render these in an
+    // <img> while still showing them fine on a direct visit - a top-level
+    // navigation is not subject to CORP. Images are the one thing on this
+    // server that exists to be embedded elsewhere.
+    'Cross-Origin-Resource-Policy': 'cross-origin',
   });
   res.end(entry.buffer);
 });
