@@ -197,8 +197,11 @@ function ChoiceFields({
   const [imageFor, setImageFor] = useState<string | null>(null);
   const locked = question.type === 'truefalse';
 
+  // `min-w-0` on the fieldset defeats the UA stylesheet's
+  // `min-width: min-content`, which otherwise stops the answer list shrinking
+  // on a phone and pushes the whole row off the right edge of the screen.
   return (
-    <fieldset>
+    <fieldset className="min-w-0">
       <legend className="field-label mb-3">
         Answers
         <span className="ml-2 font-normal text-slate-600">tap the circle to mark the right one</span>
@@ -212,7 +215,7 @@ function ChoiceFields({
             <div key={option.id}>
               <div
                 className={
-                  'flex items-center gap-2.5 rounded-xl border p-2 transition ' +
+                  'flex min-w-0 items-center gap-2.5 rounded-xl border p-2 transition ' +
                   (option.correct
                     ? 'border-emerald-500/40 bg-emerald-500/[0.07]'
                     : 'border-white/[0.06] bg-white/[0.02]')
@@ -335,7 +338,7 @@ function ShortAnswerFields({
   const accepted = question.acceptedAnswers ?? [''];
 
   return (
-    <fieldset>
+    <fieldset className="min-w-0">
       <legend className="field-label mb-3">
         Accepted answers
         <span className="ml-2 font-normal text-slate-600">any one of these counts as correct</span>
@@ -345,7 +348,7 @@ function ShortAnswerFields({
         {accepted.map((answer, i) => (
           <div
             key={i}
-            className="flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2"
+            className="flex min-w-0 items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2"
           >
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-xs font-bold text-emerald-300 nums">
               {i + 1}

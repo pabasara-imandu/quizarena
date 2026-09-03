@@ -115,7 +115,7 @@ export function HostLobby({
                 {!p.connected && <span className="text-[11px] text-slate-600">offline</span>}
                 <button
                   type="button"
-                  className="shrink-0 rounded px-1 text-[11px] text-slate-600 opacity-0 transition hover:text-rose-300 group-hover:opacity-100"
+                  className="shrink-0 rounded px-2 py-1 text-[11px] text-slate-600 transition hover:text-rose-300 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
                   onClick={() => onKick(p.id)}
                   aria-label={'Remove ' + p.nickname}
                 >
