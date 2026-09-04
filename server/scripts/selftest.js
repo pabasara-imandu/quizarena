@@ -452,6 +452,41 @@ test('matrix export has one column group per question and one row per student', 
   assert.ok(csv.includes('Ada'));
 });
 
+console.log('\nediting an open room');
+
+test('a quiz can be rewritten while the room is still in the lobby', () => {
+  const room = new Room({ pin: '111111', quiz, settings: {}, hostSocketId: 'h' });
+  room.addPlayer({ nickname: 'Ada', socketId: 's1' });
+
+  const replacement = normalizeQuiz({
+    title: 'Rewritten',
+    questions: [
+      { id: 'n1', type: 'truefalse', text: 'Fixed the typo', timeLimitSec: 15, points: 800,
+        options: [{ id: 'true', text: 'True', correct: true }, { id: 'false', text: 'False' }] },
+    ],
+  });
+
+  assert.equal(room.replaceQuiz({ quiz: replacement }), true);
+  assert.equal(room.quiz.title, 'Rewritten');
+  assert.equal(room.totalQuestions, 1, 'running order follows the new quiz');
+  assert.equal(room.answers.length, 1, 'answer slots follow the new quiz');
+  assert.equal(room.pin, '111111', 'the PIN survives, so nobody has to rejoin');
+  assert.equal(room.players.size, 1, 'and neither does the roster');
+});
+
+test('the quiz is frozen once the first question has started', () => {
+  // Answers are indexed by question and the order is derived from the quiz, so
+  // a swap mid-game would silently rewrite what the class has already played.
+  const room = new Room({ pin: '222222', quiz, settings: {}, hostSocketId: 'h' });
+  room.addPlayer({ nickname: 'Ada', socketId: 's1' });
+  startQuestion({ to: () => ({ emit() {} }), emit() {} }, room, 0);
+
+  const before = room.quiz.title;
+  assert.equal(room.replaceQuiz({ quiz: normalizeQuiz({ title: 'Nope', questions: quiz.questions }) }), false);
+  assert.equal(room.quiz.title, before, 'the live quiz is untouched');
+});
+
+
 console.log('\nimage headers');
 
 /**

@@ -76,6 +76,37 @@ export class Room {
     this.lastActivityAt = Date.now();
   }
 
+  /**
+   * Swap in a rewritten quiz while the room is still in the lobby.
+   *
+   * Lobby-only, and not out of caution: answers are indexed by question and
+   * the running order is derived from the quiz, so changing either after the
+   * first question would silently rewrite what has already been played.
+   *
+   * The PIN, the host token and everyone already in the room all survive -
+   * the point of editing here is to fix a typo without sending thirty
+   * students to a new PIN.
+   */
+  replaceQuiz({ quiz, settings }) {
+    if (this.phase !== PHASE.LOBBY) return false;
+
+    this.quiz = quiz;
+    if (settings) this.settings = { ...this.settings, ...settings };
+
+    // Both are shaped by the quiz, so both are rebuilt rather than patched.
+    this.answers = this.quiz.questions.map(() => new Map());
+    this.order = this.settings.shuffleQuestions
+      ? seededShuffle(
+          this.quiz.questions.map((_, i) => i),
+          this.id + ':questions'
+        )
+      : this.quiz.questions.map((_, i) => i);
+
+    this.touch();
+    this.dirty = true;
+    return true;
+  }
+
   get totalQuestions() {
     return this.order.length;
   }

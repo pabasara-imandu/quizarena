@@ -301,6 +301,12 @@ function StudentSession() {
     proctor.exitFullscreen();
   });
 
+  /** The host edited the quiz while we were sitting in the waiting room. */
+  useSocketEvent<{ quizTitle: string; settings?: Partial<RoomSettings> }>('room:updated', (p) => {
+    if (p?.quizTitle) setQuizTitle(p.quizTitle);
+    if (p?.settings) setSettings(p.settings);
+  });
+
   useSocketEvent<void>('player:strikesCleared', () => {
     setStrikes(0);
     setLocked(false);
