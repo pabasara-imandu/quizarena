@@ -25,7 +25,7 @@ export const channels = {
  * id is a cheap no-op, so we always emit and let the client's own reconnect
  * and resync handle the real disconnections.
  */
-function emitToPlayer(io, player, event, payload) {
+export function emitToPlayer(io, player, event, payload) {
   if (!player.socketId) return;
   io.to(player.socketId).emit(event, payload);
 }
@@ -119,6 +119,43 @@ function armTimer(room, fn, delayMs) {
   if (room.timer) clearTimeout(room.timer);
   room.timer = setTimeout(fn, Math.max(0, delayMs));
   room.timer.unref?.();
+}
+
+/**
+ * How long an unattended room holds each between-questions screen.
+ *
+ * Long enough to read the answer and find your name on the board, short enough
+ * that a class of thirty is not left staring at a static screen. The host can
+ * always cut ahead - auto-advance removes the obligation to click, not the
+ * ability to.
+ */
+export const AUTO_REVEAL_MS = 5000;
+export const AUTO_LEADERBOARD_MS = 5000;
+
+/**
+ * Drive the room forward without the host.
+ *
+ * Deliberately reuses `room.timer`: the question clock and the auto-advance
+ * clock are never armed at the same time, and sharing the slot means a host
+ * who does click Next cancels the pending hop for free rather than racing it.
+ */
+function scheduleAutoAdvance(io, room, delayMs) {
+  if (!room.settings.autoAdvance) return;
+  const from = room.phase;
+  armTimer(
+    room,
+    () => {
+      // The host may have moved on, or ended the quiz, while this was pending.
+      if (room.phase !== from) return;
+      if (room.phase === PHASE.REVEAL && room.settings.showLeaderboardBetweenQuestions) {
+        showLeaderboard(io, room);
+      } else if (room.phase === PHASE.REVEAL || room.phase === PHASE.LEADERBOARD) {
+        if (room.currentIndex >= room.totalQuestions - 1) endGame(io, room);
+        else startQuestion(io, room, room.currentIndex + 1);
+      }
+    },
+    delayMs
+  );
 }
 
 /**
@@ -217,6 +254,7 @@ export function endQuestion(io, room) {
     ...hostSummary,
     leaderboard: board,
     isLastQuestion: room.currentIndex >= room.totalQuestions - 1,
+    autoAdvanceAt: room.settings.autoAdvance ? Date.now() + AUTO_REVEAL_MS : null,
   });
 
   for (const player of room.players.values()) {
@@ -227,10 +265,12 @@ export function endQuestion(io, room) {
       acceptedAnswers: hostSummary.acceptedAnswers,
       you: results.get(player.id) ?? null,
       topThree: board.top.slice(0, 3),
+      autoAdvanceAt: room.settings.autoAdvance ? Date.now() + AUTO_REVEAL_MS : null,
     });
   }
 
   emitHostSync(io, room);
+  scheduleAutoAdvance(io, room, AUTO_REVEAL_MS);
 }
 
 export function showLeaderboard(io, room) {
@@ -242,6 +282,7 @@ export function showLeaderboard(io, room) {
     ...board,
     index: room.currentIndex,
     isLastQuestion: room.currentIndex >= room.totalQuestions - 1,
+    autoAdvanceAt: room.settings.autoAdvance ? Date.now() + AUTO_LEADERBOARD_MS : null,
   });
 
   for (const player of room.players.values()) {
@@ -249,8 +290,11 @@ export function showLeaderboard(io, room) {
     emitToPlayer(io, player, 'game:leaderboard', {
       top: board.top,
       you: me ? { ...me, score: player.score, nickname: player.nickname } : null,
+      autoAdvanceAt: room.settings.autoAdvance ? Date.now() + AUTO_LEADERBOARD_MS : null,
     });
   }
+
+  scheduleAutoAdvance(io, room, AUTO_LEADERBOARD_MS);
 }
 
 export function endGame(io, room) {

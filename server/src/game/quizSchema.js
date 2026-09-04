@@ -133,6 +133,7 @@ export function normalizeSettings(input) {
     requireFullscreen: s.requireFullscreen !== false,
     allowLateJoin: !!s.allowLateJoin,
     showLeaderboardBetweenQuestions: s.showLeaderboardBetweenQuestions !== false,
+    autoAdvance: !!s.autoAdvance,
     allowSkip: s.allowSkip !== false,
     allowReactions: s.allowReactions !== false,
     strikeLimit: clamp(Math.round(Number(s.strikeLimit) || 3), 0, 20),

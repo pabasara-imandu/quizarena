@@ -53,6 +53,12 @@ export function SettingsPanel({
 
         <Group title="How the room runs">
           <Toggle
+            label="Run the quiz on its own"
+            hint="Each question moves to the answers and on to the next by itself, so you never have to reach for Next. You can still press it to jump ahead."
+            checked={settings.autoAdvance}
+            onChange={(v) => onChange({ autoAdvance: v })}
+          />
+          <Toggle
             label="Let students skip"
             hint="A Skip button ends their turn early, so one table cannot hold up the room."
             checked={settings.allowSkip}

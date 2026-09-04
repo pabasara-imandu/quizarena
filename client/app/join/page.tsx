@@ -55,6 +55,8 @@ function StudentSession() {
   const [topThree, setTopThree] = useState<LeaderboardRow[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [myRank, setMyRank] = useState<{ rank: number; totalPlayers: number } | null>(null);
+  /** Set when the room advances itself, so the wait can be described honestly. */
+  const [autoAdvancing, setAutoAdvancing] = useState(false);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [strikes, setStrikes] = useState(0);
@@ -272,6 +274,7 @@ function StudentSession() {
   useSocketEvent<any>('game:reveal', (p) => {
     markEvent();
     setPhase('reveal');
+    setAutoAdvancing(!!p.autoAdvanceAt);
     setCorrectIds(p.correctOptionIds ?? null);
     setAcceptedAnswers(p.acceptedAnswers ?? null);
     setTopThree(p.topThree ?? []);
@@ -287,6 +290,7 @@ function StudentSession() {
   useSocketEvent<any>('game:leaderboard', (p) => {
     markEvent();
     setPhase('leaderboard');
+    setAutoAdvancing(!!p.autoAdvanceAt);
     setLeaderboard(p.top ?? []);
     if (p.you) {
       setMyRank({ rank: p.you.rank, totalPlayers: p.you.totalPlayers });
@@ -424,6 +428,7 @@ function StudentSession() {
           onSubmitText={(text) => submit({ text })}
           onSkip={() => submit({ skipped: true, optionId: null })}
           allowSkip={settings.allowSkip !== false}
+          autoAdvancing={autoAdvancing}
           result={result}
           correctIds={correctIds}
           acceptedAnswers={acceptedAnswers}

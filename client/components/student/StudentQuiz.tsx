@@ -26,6 +26,8 @@ interface Props {
   onSubmitText: (text: string) => void;
   onSkip: () => void;
   allowSkip: boolean;
+  /** The room moves on by itself, so nobody is waiting on the teacher. */
+  autoAdvancing?: boolean;
   result: PlayerResult | null;
   correctIds: string[] | null;
   acceptedAnswers: string[] | null;
@@ -60,6 +62,7 @@ export function StudentQuiz(props: Props) {
     onSubmitText,
     onSkip,
     allowSkip,
+    autoAdvancing = false,
     result,
     correctIds,
     acceptedAnswers,
@@ -233,9 +236,13 @@ export function StudentQuiz(props: Props) {
       {(phase === 'reveal' || phase === 'leaderboard') && !blocked && (
         <WaitingStrip
           text={
-            question && question.index + 1 >= question.total
-              ? 'Waiting for your teacher to finish the quiz…'
-              : 'Waiting for your teacher to start the next question…'
+            autoAdvancing
+              ? question && question.index + 1 >= question.total
+                ? 'Finishing up…'
+                : 'Next question coming up…'
+              : question && question.index + 1 >= question.total
+                ? 'Waiting for your teacher to finish the quiz…'
+                : 'Waiting for your teacher to start the next question…'
           }
         />
       )}

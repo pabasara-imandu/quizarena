@@ -6,6 +6,7 @@ import { QuizCreator } from '@/components/host/QuizCreator';
 import { HostLobby } from '@/components/host/HostLobby';
 import { HostLive, type RevealState } from '@/components/host/HostLive';
 import { HostAnalytics } from '@/components/host/HostAnalytics';
+import type { RegradeChange } from '@/components/host/ShortAnswerReview';
 import { useSocket, useSocketEvent } from '@/lib/socket';
 import type {
   Analytics,
@@ -203,6 +204,18 @@ export default function HostPage() {
     setEditing(false);
   };
 
+  /**
+   * Commit hand-marked short answers and take the rebuilt results back.
+   *
+   * The server returns the whole analytics payload rather than a delta,
+   * because a single accepted spelling can move streaks, scores and ranks
+   * across the entire quiz - there is no small update to apply.
+   */
+  const regrade = async (changes: RegradeChange[]) => {
+    const res = await run('host:regrade', { changes });
+    if (res?.ok && res.analytics) setAnalytics(res.analytics);
+  };
+
   const restart = () => {
     sessionStorage.removeItem(STORE_KEY);
     setPin(null);
@@ -307,6 +320,7 @@ export default function HostPage() {
           integrity={integrity}
           reactionBurst={reactionBurst}
           strikeLimit={settings?.strikeLimit ?? 0}
+          autoAdvance={!!settings?.autoAdvance}
           busy={busy}
           onNext={() => run('host:next')}
           onSkipTimer={() => run('host:skipTimer')}
@@ -321,6 +335,8 @@ export default function HostPage() {
           pin={pin}
           hostToken={hostToken}
           onRestart={restart}
+          onRegrade={regrade}
+          regrading={busy}
         />
       )}
     </main>

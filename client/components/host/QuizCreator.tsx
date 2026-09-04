@@ -84,6 +84,7 @@ const DEFAULT_SETTINGS: RoomSettings = {
   requireFullscreen: true,
   allowLateJoin: false,
   showLeaderboardBetweenQuestions: true,
+  autoAdvance: false,
   allowSkip: true,
   allowReactions: true,
   strikeLimit: 3,

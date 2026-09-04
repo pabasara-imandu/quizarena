@@ -30,11 +30,11 @@ export function matchesShortAnswer(raw, acceptedAnswers, { caseSensitive = false
  * keyed by the normalised form but display the first spelling that arrived,
  * so the teacher sees "Paris" rather than "paris".
  */
-export function groupShortAnswers(records) {
+export function groupShortAnswers(records, { caseSensitive = false } = {}) {
   const buckets = new Map();
   for (const r of records) {
     if (r.skipped || r.text == null) continue;
-    const key = normalizeAnswer(r.text);
+    const key = normalizeAnswer(r.text, { caseSensitive });
     const existing = buckets.get(key);
     if (existing) existing.count++;
     else buckets.set(key, { key, display: String(r.text).trim(), count: 1, correct: !!r.correct });
