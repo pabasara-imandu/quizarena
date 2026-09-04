@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
 import { seededShuffle } from '../utils/rng.js';
 import { computeScore, rankPlayers, streakMultiplier } from './scoring.js';
-import { groupShortAnswers, matchesShortAnswer } from './answerMatch.js';
+import { groupShortAnswers, matchesShortAnswer, normalizeAnswer } from './answerMatch.js';
 
 export const PHASE = {
   LOBBY: 'lobby',
@@ -40,6 +40,7 @@ export class Room {
       requireFullscreen: true,
       allowLateJoin: false,
       showLeaderboardBetweenQuestions: true,
+      autoAdvance: false,
       allowSkip: true,
       allowReactions: true,
       strikeLimit: 3,
@@ -380,7 +381,10 @@ export class Room {
         correctOptionIds: q.options.filter((o) => o.correct).map((o) => o.id),
         acceptedAnswers: q.type === 'short' ? q.acceptedAnswers : null,
         distribution,
-        textResponses: q.type === 'short' ? groupShortAnswers(answerRecords).slice(0, 12) : null,
+        textResponses:
+          q.type === 'short'
+            ? groupShortAnswers(answerRecords, { caseSensitive: q.caseSensitive }).slice(0, 12)
+            : null,
         answeredTotal,
         correctTotal,
         skippedTotal,
@@ -391,6 +395,111 @@ export class Room {
           : null,
       },
     };
+  }
+
+  // -------------------------------------------------------------- regrading
+
+  /**
+   * Re-mark free-text answers after the quiz, and rebuild every score.
+   *
+   * A short-answer question is graded against the list the teacher wrote
+   * beforehand, which is a guess at every spelling thirty students might use.
+   * "H.T.T.P.", "hyper text transfer protocol", a right answer in the wrong
+   * language - all marked wrong by a list that was never going to be complete.
+   * This is the teacher's override.
+   *
+   * Changes are keyed by the same normalised bucket the host is looking at, so
+   * accepting a spelling accepts it for everyone who wrote it, in one action.
+   */
+  applyRegrades(changes) {
+    let touched = 0;
+
+    for (const change of Array.isArray(changes) ? changes : []) {
+      const originalIndex = this.quiz.questions.findIndex((q) => q.id === change?.questionId);
+      const q = this.quiz.questions[originalIndex];
+      if (!q || q.type !== 'short') continue;
+
+      const bucket = this.answers[originalIndex];
+      const correct = !!change.correct;
+      // A blank marks field means "score it the way the game would have":
+      // full speed and streak maths, as if it had been accepted at the time.
+      const custom =
+        change.points === null || change.points === undefined || change.points === ''
+          ? null
+          : clampPoints(change.points);
+
+      for (const record of bucket.values()) {
+        if (record.skipped || typeof record.text !== 'string') continue;
+        if (normalizeAnswer(record.text, { caseSensitive: q.caseSensitive }) !== change.key) {
+          continue;
+        }
+        record.correct = correct;
+        record.overridePoints = correct ? custom : null;
+        record.regraded = true;
+        touched++;
+      }
+    }
+
+    if (touched) this.recomputeScores();
+    return touched;
+  }
+
+  /**
+   * Replay every question in running order and rebuild scores from the answer
+   * records.
+   *
+   * A full replay rather than a delta, because streaks are sequential: accepting
+   * question 3 for a student can change the multiplier on questions 4 and 5.
+   * Patching one score in isolation would leave a leaderboard that does not add
+   * up. Participation counts (how many they answered, how long they took) are
+   * left alone - regrading changes marks, not what happened.
+   */
+  recomputeScores() {
+    for (const player of this.players.values()) {
+      player.score = 0;
+      player.streak = 0;
+      player.bestStreak = 0;
+      player.correctCount = 0;
+    }
+
+    for (const originalIndex of this.order) {
+      const q = this.quiz.questions[originalIndex];
+      const bucket = this.answers[originalIndex];
+      const timeLimitMs = q.timeLimitSec * 1000;
+
+      for (const player of this.players.values()) {
+        const record = bucket.get(player.id);
+        if (!record) {
+          player.streak = 0;
+          continue;
+        }
+
+        if (record.correct) {
+          player.streak++;
+          player.bestStreak = Math.max(player.bestStreak, player.streak);
+          player.correctCount++;
+        } else {
+          player.streak = 0;
+        }
+
+        const scored = computeScore({
+          base: q.points,
+          correct: record.correct,
+          elapsedMs: record.elapsedMs,
+          timeLimitMs,
+          streak: player.streak,
+          speedBonusEnabled: this.settings.speedBonus,
+        });
+
+        const awarded =
+          record.correct && record.overridePoints != null ? record.overridePoints : scored.points;
+        record.points = awarded;
+        player.score += awarded;
+      }
+    }
+
+    this.dirty = true;
+    this.touch();
   }
 
   // ------------------------------------------------------------ leaderboard
@@ -472,7 +581,17 @@ export class Room {
           count: distribution[o.id] || 0,
         })),
         acceptedAnswers: q.type === 'short' ? q.acceptedAnswers : null,
-        textResponses: q.type === 'short' ? groupShortAnswers(records) : null,
+        textResponses:
+          q.type === 'short'
+            ? groupShortAnswers(records, { caseSensitive: q.caseSensitive }).map((g) => ({
+                ...g,
+                regraded: records.some(
+                  (r) =>
+                    r.regraded &&
+                    normalizeAnswer(r.text, { caseSensitive: q.caseSensitive }) === g.key
+                ),
+              }))
+            : null,
         answered,
         skipped: records.filter((r) => r.skipped).length,
         unanswered: Math.max(0, this.players.size - answered),
@@ -571,4 +690,11 @@ export class Room {
 
     return { questions, rows };
   }
+}
+
+/** Marks a teacher can type by hand. Wide, but not a score-injection vector. */
+function clampPoints(value) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(100000, Math.max(0, n));
 }

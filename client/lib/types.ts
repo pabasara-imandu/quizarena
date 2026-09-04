@@ -33,6 +33,7 @@ export interface RoomSettings {
   requireFullscreen: boolean;
   allowLateJoin: boolean;
   showLeaderboardBetweenQuestions: boolean;
+  autoAdvance: boolean;
   allowSkip: boolean;
   allowReactions: boolean;
   strikeLimit: number;
@@ -111,6 +112,8 @@ export interface TextResponse {
   display: string;
   count: number;
   correct: boolean;
+  /** Set once a host has marked this spelling by hand. */
+  regraded?: boolean;
 }
 
 export interface PlayerResult {

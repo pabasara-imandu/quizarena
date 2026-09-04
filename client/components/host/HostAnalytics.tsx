@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { Analytics } from '@/lib/types';
+import { ShortAnswerReview, type RegradeChange } from '@/components/host/ShortAnswerReview';
 import { serverUrl } from '@/lib/serverUrl';
 
 const pct = (n: number) => Math.round(n * 100) + '%';
@@ -13,13 +14,22 @@ export function HostAnalytics({
   pin,
   hostToken,
   onRestart,
+  onRegrade,
+  regrading = false,
 }: {
   data: Analytics;
   pin: string | null;
   hostToken: string | null;
   onRestart: () => void;
+  /** Absent when the room has closed and there is nothing left to re-mark. */
+  onRegrade?: (changes: RegradeChange[]) => Promise<void>;
+  regrading?: boolean;
 }) {
-  const [tab, setTab] = useState<'questions' | 'students' | 'matrix' | 'integrity'>('questions');
+  const [tab, setTab] = useState<
+    'questions' | 'students' | 'matrix' | 'integrity' | 'remark'
+  >('questions');
+
+  const shortAnswerCount = data.perQuestion.filter((q) => q.type === 'short').length;
 
   /** Quick summary CSV, built client-side so it works even if the room is gone. */
   const csvHref = useMemo(() => {
@@ -151,7 +161,17 @@ export function HostAnalytics({
       )}
 
       <div className="segmented" role="tablist" aria-label="Results view">
-        {(['questions', 'students', 'matrix', 'integrity'] as const).map((t) => (
+        {(
+          [
+            'questions',
+            'students',
+            'matrix',
+            'integrity',
+            // Only offered when there is free text to judge; a quiz of
+            // multiple choice has nothing a teacher could overrule.
+            ...(onRegrade && shortAnswerCount > 0 ? (['remark'] as const) : []),
+          ] as const
+        ).map((t) => (
           <button
             key={t}
             type="button"
@@ -160,15 +180,24 @@ export function HostAnalytics({
             onClick={() => setTab(t)}
             className="segmented-item capitalize"
           >
-            {t}
+            {t === 'remark' ? 'Re-mark' : t}
             {t === 'integrity' && data.integrityLog.length > 0 && (
               <span className="ml-1.5 rounded-full bg-black/30 px-1.5 py-0.5 text-[10px] nums">
                 {data.integrityLog.length}
               </span>
             )}
+            {t === 'remark' && (
+              <span className="ml-1.5 rounded-full bg-black/30 px-1.5 py-0.5 text-[10px] nums">
+                {shortAnswerCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
+
+      {tab === 'remark' && onRegrade && (
+        <ShortAnswerReview data={data} onApply={onRegrade} busy={regrading} />
+      )}
 
       {tab === 'questions' && (
         <div className="space-y-4">

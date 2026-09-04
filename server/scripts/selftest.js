@@ -452,6 +452,153 @@ test('matrix export has one column group per question and one row per student', 
   assert.ok(csv.includes('Ada'));
 });
 
+console.log('\nre-marking short answers');
+
+/** A one-question short-answer room with three students already scored. */
+function gradedShortRoom(extraSettings = {}) {
+  const shortQuiz = normalizeQuiz({
+    title: 'Marking',
+    questions: [
+      { id: 's1', type: 'short', text: 'What does HTTP stand for?', timeLimitSec: 30,
+        points: 1000, acceptedAnswers: ['HyperText Transfer Protocol'] },
+    ],
+  });
+  const room = new Room({
+    pin: '333333',
+    quiz: shortQuiz,
+    settings: { speedBonus: false, ...extraSettings },
+    hostSocketId: 'h',
+  });
+  const ada = room.addPlayer({ nickname: 'Ada', socketId: 's1' });
+  const ben = room.addPlayer({ nickname: 'Ben', socketId: 's2' });
+  const cy = room.addPlayer({ nickname: 'Cy', socketId: 's3' });
+
+  room.phase = PHASE.QUESTION;
+  room.currentIndex = 0;
+  room.startAt = Date.now();
+  room.endAt = room.startAt + 30000;
+
+  room.submitAnswer({ player: ada, text: 'HyperText Transfer Protocol' });
+  room.submitAnswer({ player: ben, text: 'hyper text transfer protocol' });
+  room.submitAnswer({ player: cy, text: 'Hypertext Transport Protocol' });
+  room.finalizeQuestion();
+  room.phase = PHASE.ENDED;
+  return { room, ada, ben, cy };
+}
+
+test('a spelling the teacher did not think of can be accepted afterwards', () => {
+  const { room, ada, ben } = gradedShortRoom();
+  assert.equal(ada.score > 0, true, 'the exact spelling scored during the game');
+  assert.equal(ben.score, 0, 'the spaced-out spelling did not');
+
+  const changed = room.applyRegrades([
+    { questionId: 's1', key: 'hyper text transfer protocol', correct: true },
+  ]);
+
+  assert.equal(changed, 1, 'one answer re-marked');
+  assert.equal(ben.score, ada.score, 'and it now scores exactly what the accepted one did');
+  assert.equal(ben.correctCount, 1);
+});
+
+test('custom marks override the calculated score', () => {
+  const { room, cy } = gradedShortRoom();
+  room.applyRegrades([
+    { questionId: 's1', key: 'hypertext transport protocol', correct: true, points: 250 },
+  ]);
+  assert.equal(cy.score, 250, 'half marks, exactly as typed');
+});
+
+test('an answer accepted in error can be taken back', () => {
+  const { room, ada } = gradedShortRoom();
+  room.applyRegrades([
+    { questionId: 's1', key: 'hypertext transfer protocol', correct: false },
+  ]);
+  assert.equal(ada.score, 0);
+  assert.equal(ada.correctCount, 0);
+});
+
+test('re-marking rebuilds streaks, not just the one score', () => {
+  // The reason scores are replayed rather than patched: accepting question 1
+  // changes the multiplier that question 2 was scored under.
+  const twoShort = normalizeQuiz({
+    title: 'Streaks',
+    questions: [
+      { id: 'a', type: 'short', text: 'One', timeLimitSec: 30, points: 1000, acceptedAnswers: ['one'] },
+      { id: 'b', type: 'short', text: 'Two', timeLimitSec: 30, points: 1000, acceptedAnswers: ['two'] },
+    ],
+  });
+  const room = new Room({ pin: '444444', quiz: twoShort, settings: { speedBonus: false }, hostSocketId: 'h' });
+  const ada = room.addPlayer({ nickname: 'Ada', socketId: 's1' });
+
+  for (const [i, text] of [[0, 'wun'], [1, 'two']]) {
+    room.phase = PHASE.QUESTION;
+    room.currentIndex = i;
+    room.startAt = Date.now();
+    room.endAt = room.startAt + 30000;
+    room.submitAnswer({ player: ada, text });
+    room.finalizeQuestion();
+  }
+  room.phase = PHASE.ENDED;
+
+  const withoutStreak = ada.score;
+  assert.equal(withoutStreak, 1000, 'only Q2 counted, at 1x');
+
+  room.applyRegrades([{ questionId: 'a', key: 'wun', correct: true }]);
+
+  // Q1 at 1x plus Q2 at 1.25x, because Q1 is now the start of a streak.
+  assert.equal(ada.score, 2250);
+  assert.equal(ada.bestStreak, 2, 'the streak history is rebuilt too');
+});
+
+test('re-marking one answer does not disturb anyone else', () => {
+  // The replay recomputes every score from scratch, so it has to land on
+  // exactly the numbers the live game produced for everyone it did not touch.
+  // Speed bonus on, because that is where a drifting recomputation would show.
+  const { room, ada, ben } = gradedShortRoom({ speedBonus: true });
+  const adaBefore = ada.score;
+
+  room.applyRegrades([
+    { questionId: 's1', key: 'hyper text transfer protocol', correct: true },
+  ]);
+
+  assert.equal(ada.score, adaBefore, 'her answer was not part of the correction');
+  assert.ok(ben.score > 0, 'and the one that was is now scored');
+});
+
+test('re-marking leaves participation counts alone', () => {
+  const { room, ben } = gradedShortRoom();
+  const answered = ben.answeredCount;
+  const time = ben.totalResponseMs;
+  room.applyRegrades([{ questionId: 's1', key: 'hyper text transfer protocol', correct: true }]);
+  assert.equal(ben.answeredCount, answered, 'they answered it either way');
+  assert.equal(ben.totalResponseMs, time, 'and took exactly as long');
+});
+
+test('only short-answer questions can be re-marked', () => {
+  // Multiple choice has an unambiguous right answer; there is nothing to judge,
+  // and a silent override would be a way to fake a leaderboard.
+  const room = new Room({ pin: '555555', quiz, settings: {}, hostSocketId: 'h' });
+  const ada = room.addPlayer({ nickname: 'Ada', socketId: 's1' });
+  room.phase = PHASE.QUESTION;
+  room.currentIndex = 0;
+  room.startAt = Date.now();
+  room.endAt = room.startAt + 20000;
+  room.submitAnswer({ player: ada, optionId: 'b' });
+  room.finalizeQuestion();
+  room.phase = PHASE.ENDED;
+
+  assert.equal(room.applyRegrades([{ questionId: 'q1', key: 'b', correct: true }]), 0);
+  assert.equal(ada.score, 0);
+});
+
+console.log('\nauto-advance');
+
+test('auto-advance is off unless it is asked for', () => {
+  assert.equal(normalizeSettings({}).autoAdvance, false, 'the host still drives by default');
+  assert.equal(normalizeSettings({ autoAdvance: true }).autoAdvance, true);
+});
+
+
 console.log('\nediting an open room');
 
 test('a quiz can be rewritten while the room is still in the lobby', () => {

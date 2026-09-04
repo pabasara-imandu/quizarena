@@ -46,6 +46,7 @@ interface Props {
   integrity: IntegrityEntry[];
   reactionBurst: { reactions: { emoji: string; count: number }[]; at: number } | null;
   strikeLimit: number;
+  autoAdvance?: boolean;
   onNext: () => void;
   onSkipTimer: () => void;
   onEnd: () => void;
@@ -77,6 +78,7 @@ export function HostLive({
   integrity,
   reactionBurst,
   strikeLimit,
+  autoAdvance = false,
   onNext,
   onSkipTimer,
   onEnd,
@@ -329,6 +331,14 @@ export function HostLive({
           reaching for it. Fixed, it is always under the thumb. */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.07] bg-ink-950/92 px-4 py-3 backdrop-blur-xl sm:px-6">
         <div className="mx-auto flex max-w-6xl items-center gap-2">
+          {/* Auto-advance does not take the button away - a host who wants to
+              move on now should not have to wait out a timer they set for the
+              class's benefit. */}
+          {autoAdvance && showingReveal && (
+            <span className="chip-good shrink-0 animate-breathe" title="This room advances on its own">
+              Auto
+            </span>
+          )}
           {phase === 'question' && (
             <button
               className="btn-secondary shrink-0"

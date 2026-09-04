@@ -4,6 +4,7 @@ import { PHASE } from '../game/room.js';
 import { normalizeQuiz, normalizeSettings, ValidationError } from '../game/quizSchema.js';
 import { createBucket, sanitizeNickname } from '../utils/rateLimit.js';
 import {
+  emitToPlayer,
   channels,
   scheduleHostSync,
   emitHostSync,
@@ -224,6 +225,39 @@ export function registerSocketHandlers(io) {
       if (!room) return;
       endGame(io, room);
       respond(cb, ok());
+    });
+
+    /**
+     * Re-mark free-text answers after the quiz and hand back fresh analytics.
+     *
+     * Batched on purpose: the host stages every correction on the results
+     * screen and sends them in one go, so scores are rebuilt once rather than
+     * once per keystroke, and the numbers never flicker through half-applied
+     * states in front of the class.
+     */
+    socket.on('host:regrade', (payload, cb) => {
+      const room = withHostRoom(cb);
+      if (!room) return;
+      if (room.phase !== PHASE.ENDED) {
+        return respond(cb, fail('Re-marking is for after the quiz has finished.'));
+      }
+
+      const changes = Array.isArray(payload?.changes) ? payload.changes.slice(0, 200) : [];
+      const touched = room.applyRegrades(changes);
+      const analytics = room.buildAnalytics();
+
+      // Students are still holding their final screen. Their score and rank
+      // may just have moved, so they get the corrected version too.
+      for (const player of room.players.values()) {
+        emitToPlayer(io, player, 'game:over', {
+          podium: analytics.podium,
+          you: analytics.players.find((p) => p.id === player.id) || null,
+          questionCount: analytics.questionCount,
+          regraded: touched > 0,
+        });
+      }
+
+      respond(cb, ok({ answersChanged: touched, analytics }));
     });
 
     socket.on('host:kick', (payload, cb) => {
