@@ -139,6 +139,45 @@ export function registerSocketHandlers(io) {
       return room;
     };
 
+    /**
+     * Rewrite the quiz of a room that is already open.
+     *
+     * Launching used to be one-way: the only route back to the editor was to
+     * abandon the room, which meant a new PIN and re-gathering everyone who
+     * had already joined. This keeps the PIN, the host token and the roster.
+     */
+    socket.on('host:updateQuiz', (payload, cb) => {
+      const room = withHostRoom(cb);
+      if (!room) return;
+      if (room.phase !== PHASE.LOBBY) {
+        return respond(cb, fail('The quiz has started, so it can no longer be edited.'));
+      }
+      try {
+        const quiz = normalizeQuiz(payload?.quiz);
+        const settings = payload?.settings ? normalizeSettings(payload.settings) : null;
+        room.replaceQuiz({ quiz, settings });
+
+        // Players sitting in the waiting room are showing the old title.
+        io.to(channels.players(room.pin)).emit('room:updated', {
+          quizTitle: room.quiz.title,
+          settings: room.settings,
+        });
+
+        respond(
+          cb,
+          ok({ quiz: room.quiz, settings: room.settings, state: snapshotFor(room) })
+        );
+      } catch (err) {
+        respond(
+          cb,
+          fail(
+            err instanceof ValidationError ? err.message : 'Could not save the quiz.',
+            'invalid_quiz'
+          )
+        );
+      }
+    });
+
     socket.on('host:start', (_payload, cb) => {
       const room = withHostRoom(cb);
       if (!room) return;

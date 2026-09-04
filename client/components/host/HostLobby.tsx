@@ -15,6 +15,8 @@ export function HostLobby({
   players,
   onStart,
   onKick,
+  onEdit,
+  questionCount,
   starting,
   reactionBurst,
 }: {
@@ -23,6 +25,9 @@ export function HostLobby({
   players: HostPlayer[];
   onStart: () => void;
   onKick: (playerId: string) => void;
+  /** Absent until the room's quiz is known (e.g. straight after a reconnect). */
+  onEdit?: () => void;
+  questionCount?: number;
   starting: boolean;
   reactionBurst?: { reactions: { emoji: string; count: number }[]; at: number } | null;
 }) {
@@ -67,6 +72,14 @@ export function HostLobby({
             <button className="btn-secondary" type="button" onClick={copy}>
               {copied ? '✓ Link copied' : 'Copy join link'}
             </button>
+            {/* Launching used to be a one-way door: spotting a typo on the
+                projector meant abandoning the room and re-gathering everyone
+                on a new PIN. The room survives the edit. */}
+            {onEdit && (
+              <button className="btn-secondary" type="button" onClick={onEdit} disabled={starting}>
+                <span aria-hidden>✎</span> Edit quiz
+              </button>
+            )}
             <button
               className="btn-primary btn-lg"
               type="button"
@@ -87,7 +100,10 @@ export function HostLobby({
               </>
             )}
           </p>
-          <p className="mt-1.5 text-xs text-slate-600">{quizTitle}</p>
+          <p className="mt-1.5 text-xs text-slate-600">
+            {quizTitle}
+            {questionCount ? ' · ' + questionCount + (questionCount === 1 ? ' question' : ' questions') : ''}
+          </p>
         </div>
       </div>
 

@@ -1,12 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { QuestionList, isIncomplete } from '@/components/host/QuestionList';
 import { QuestionEditor } from '@/components/host/QuestionEditor';
 import { SettingsPanel } from '@/components/host/SettingsPanel';
 import { StartFromModal } from '@/components/host/StartFromModal';
 import type { Question, Quiz, RoomSettings } from '@/lib/types';
 import { serverUrl } from '@/lib/serverUrl';
+import {
+  clearDraft,
+  describeAge,
+  isWorthSaving,
+  loadDraft,
+  saveDraft,
+} from '@/lib/quizDraft';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -86,6 +93,10 @@ interface Props {
   onLaunch: (quiz: Quiz, settings: RoomSettings) => Promise<void>;
   busy: boolean;
   error: string | null;
+  /** Editing a room that is already open: seeds the editor and changes the
+   *  primary action from "Launch" to "Save". */
+  editing?: { quiz: Quiz; settings: RoomSettings } | null;
+  onCancelEdit?: () => void;
 }
 
 /**
@@ -94,13 +105,58 @@ interface Props {
  * in overlays, so the page you look at while writing a quiz contains only the
  * question you are writing.
  */
-export function QuizCreator({ onLaunch, busy, error }: Props) {
-  const [title, setTitle] = useState('My live quiz');
-  const [questions, setQuestions] = useState<Question[]>([FIRST_QUESTION]);
+export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdit }: Props) {
+  const [title, setTitle] = useState(editing?.quiz.title ?? 'My live quiz');
+  const [questions, setQuestions] = useState<Question[]>(
+    editing?.quiz.questions ?? [FIRST_QUESTION]
+  );
   const [selected, setSelected] = useState(0);
-  const [settings, setSettings] = useState<RoomSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<RoomSettings>(editing?.settings ?? DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [startFromOpen, setStartFromOpen] = useState(false);
+  const [restoredAt, setRestoredAt] = useState<number | null>(null);
+
+  /**
+   * Bring back whatever was on this device.
+   *
+   * Deliberately in an effect and not in the initial state: localStorage does
+   * not exist during the server render, so seeding from it directly would
+   * make the server and the browser disagree and React would throw the form
+   * away on hydration. Editing an open room skips this - that quiz is the
+   * live one and must not be overwritten by an older draft.
+   */
+  const restoreChecked = useRef(false);
+  useEffect(() => {
+    if (restoreChecked.current || editing) return;
+    restoreChecked.current = true;
+
+    const draft = loadDraft();
+    if (!draft) return;
+    setTitle(draft.title);
+    setQuestions(draft.questions);
+    if (draft.settings) setSettings(draft.settings);
+    setSelected(0);
+    setRestoredAt(draft.savedAt);
+  }, [editing]);
+
+  /**
+   * Mirror every edit back to the device, on a short debounce so a burst of
+   * keystrokes is one write rather than thirty.
+   */
+  useEffect(() => {
+    if (!isWorthSaving(title, questions)) return;
+    const timer = setTimeout(() => saveDraft({ title, questions, settings }), 600);
+    return () => clearTimeout(timer);
+  }, [title, questions, settings]);
+
+  const startFresh = () => {
+    clearDraft();
+    setTitle('My live quiz');
+    setQuestions([blank('multiple')]);
+    setSettings(DEFAULT_SETTINGS);
+    setSelected(0);
+    setRestoredAt(null);
+  };
 
   // Deleting the last question must never leave the editor pointing past the end.
   useEffect(() => {
@@ -168,13 +224,18 @@ export function QuizCreator({ onLaunch, busy, error }: Props) {
               <span aria-hidden>⚙</span>
               <span className="hidden sm:inline">Settings</span>
             </button>
+            {editing && (
+              <button type="button" className="btn-ghost" onClick={onCancelEdit} disabled={busy}>
+                Cancel
+              </button>
+            )}
             <button
               type="button"
               className="btn-primary btn-lg"
               disabled={busy || incompleteCount > 0}
               onClick={() => onLaunch({ title, questions }, settings)}
             >
-              {busy ? 'Opening…' : 'Launch'}
+              {busy ? (editing ? 'Saving…' : 'Opening…') : editing ? 'Save changes' : 'Launch'}
             </button>
           </div>
         </div>
@@ -200,6 +261,22 @@ export function QuizCreator({ onLaunch, busy, error }: Props) {
             Load sample quiz
           </button>
         </div>
+
+        {restoredAt !== null && (
+          <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 px-2 text-[13px] text-slate-500">
+            <span>
+              <span aria-hidden>↩ </span>
+              Picked up where you left off — saved {describeAge(restoredAt)} on this device.
+            </span>
+            <button
+              type="button"
+              onClick={startFresh}
+              className="font-medium text-slate-400 underline underline-offset-2 transition hover:text-rose-300"
+            >
+              Start a blank quiz
+            </button>
+          </p>
+        )}
 
         {error && <p className="mt-2 px-2 text-sm text-rose-300">{error}</p>}
       </div>

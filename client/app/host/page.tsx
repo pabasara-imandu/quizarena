@@ -26,7 +26,9 @@ export default function HostPage() {
   const [pin, setPin] = useState<string | null>(null);
   const [hostToken, setHostToken] = useState<string | null>(null);
   const [quizTitle, setQuizTitle] = useState('');
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [settings, setSettings] = useState<RoomSettings | null>(null);
+  const [editing, setEditing] = useState(false);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [phase, setPhase] = useState<Phase>('lobby');
   const [question, setQuestion] = useState<LiveQuestion | null>(null);
@@ -77,6 +79,7 @@ export default function HostPage() {
         setPin(res.pin);
         setHostToken(parsed.hostToken);
         setQuizTitle(res.quiz.title);
+        setQuiz(res.quiz);
         setSettings(res.settings);
         applyState(res.state);
         if (res.analytics) setAnalytics(res.analytics);
@@ -177,15 +180,35 @@ export default function HostPage() {
     setPin(res.pin);
     setHostToken(res.hostToken);
     setQuizTitle(res.quiz.title);
+    setQuiz(res.quiz);
     setSettings(res.settings);
     setTotalQuestions(res.quiz.questions.length);
     applyState(res.state);
+  };
+
+  /**
+   * Save an edit made after the room was already open.
+   *
+   * Same room, same PIN, same people: nobody who has already joined has to do
+   * anything. The server refuses this once the first question has started.
+   */
+  const saveEdits = async (nextQuiz: Quiz, nextSettings: RoomSettings) => {
+    const res = await run('host:updateQuiz', { quiz: nextQuiz, settings: nextSettings });
+    if (!res?.ok) return;
+    setQuizTitle(res.quiz.title);
+    setQuiz(res.quiz);
+    setSettings(res.settings);
+    setTotalQuestions(res.quiz.questions.length);
+    applyState(res.state);
+    setEditing(false);
   };
 
   const restart = () => {
     sessionStorage.removeItem(STORE_KEY);
     setPin(null);
     setHostToken(null);
+    setQuiz(null);
+    setEditing(false);
     setAnalytics(null);
     setPhase('lobby');
     setQuestion(null);
@@ -246,7 +269,17 @@ export default function HostPage() {
 
       {!pin && <QuizCreator onLaunch={launch} busy={busy} error={null} />}
 
-      {pin && phase === 'lobby' && (
+      {pin && phase === 'lobby' && editing && quiz && settings && (
+        <QuizCreator
+          onLaunch={saveEdits}
+          busy={busy}
+          error={null}
+          editing={{ quiz, settings }}
+          onCancelEdit={() => setEditing(false)}
+        />
+      )}
+
+      {pin && phase === 'lobby' && !editing && (
         <HostLobby
           pin={pin}
           quizTitle={quizTitle}
@@ -254,6 +287,8 @@ export default function HostPage() {
           starting={busy}
           onStart={() => run('host:start')}
           onKick={(playerId) => run('host:kick', { playerId })}
+          onEdit={quiz && settings ? () => setEditing(true) : undefined}
+          questionCount={totalQuestions}
           reactionBurst={reactionBurst}
         />
       )}
