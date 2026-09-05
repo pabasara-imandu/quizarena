@@ -16,6 +16,8 @@ import type {
   RoomSettings,
 } from '@/lib/types';
 
+import { findServerForPin } from '@/lib/servers';
+
 const STORE_KEY = 'quizarena.player';
 
 interface Session {
@@ -23,6 +25,8 @@ interface Session {
   playerId: string;
   token: string;
   nickname: string;
+  /** Which instance of the fleet holds this room. */
+  server?: string;
 }
 
 export default function JoinPage() {
@@ -35,7 +39,7 @@ export default function JoinPage() {
 
 function StudentSession() {
   const params = useSearchParams();
-  const { status, emit } = useSocket();
+  const { status, emit, connectTo, serverUrl } = useSocket();
 
   const [session, setSession] = useState<Session | null>(null);
   const [phase, setPhase] = useState<Phase>('lobby');
@@ -148,6 +152,19 @@ function StudentSession() {
       setBusy(true);
       setError(null);
       try {
+        // A PIN names one room on one server. Find which, and move there,
+        // before trying to join - otherwise a student whose browser happened
+        // to connect to a different instance is told the room does not exist.
+        const home = existing?.server
+          ? { url: existing.server }
+          : await findServerForPin(pin);
+
+        if (!home) {
+          setError('No room with that PIN. Check the digits on the board.');
+          return;
+        }
+        if (home.url !== serverUrl) await connectTo(home.url);
+
         const res = await emit<any>('player:join', {
           pin,
           nickname,
@@ -169,6 +186,7 @@ function StudentSession() {
           playerId: res.playerId,
           token: res.token,
           nickname: res.nickname,
+          server: home.url,
         };
         localStorage.setItem(STORE_KEY, JSON.stringify(next));
         setSession(next);
@@ -179,7 +197,7 @@ function StudentSession() {
         setBusy(false);
       }
     },
-    [emit, applyState]
+    [emit, applyState, connectTo, serverUrl]
   );
 
   /**

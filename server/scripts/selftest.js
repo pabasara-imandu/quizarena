@@ -14,6 +14,7 @@ import { csvCell } from '../src/game/exportCsv.js';
 import express from 'express';
 import helmet from 'helmet';
 import { api } from '../src/routes/api.js';
+import { generatePin, serverIndexForPin } from '../src/utils/pin.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -631,6 +632,46 @@ test('the quiz is frozen once the first question has started', () => {
   const before = room.quiz.title;
   assert.equal(room.replaceQuiz({ quiz: normalizeQuiz({ title: 'Nope', questions: quiz.questions }) }), false);
   assert.equal(room.quiz.title, before, 'the live quiz is untouched');
+});
+
+
+console.log('\nfleet sharding');
+
+test('each server mints PINs only in its own range', () => {
+  // With nothing shared between the servers, the PIN is the only routing
+  // information a client has - so two servers must never mint the same one.
+  for (let index = 0; index < 4; index++) {
+    for (let n = 0; n < 200; n++) {
+      const pin = generatePin(() => false, index);
+      assert.equal(pin.length, 6);
+      assert.equal(serverIndexForPin(pin), index, pin + ' should belong to server ' + index);
+    }
+  }
+});
+
+test('a PIN says which server holds the room', () => {
+  assert.equal(serverIndexForPin('100000'), 0);
+  assert.equal(serverIndexForPin('342871'), 2);
+  assert.equal(serverIndexForPin('912345'), 8);
+  // Anything that is not one of ours falls back to asking every server.
+  assert.equal(serverIndexForPin('012345'), null);
+  assert.equal(serverIndexForPin(''), null);
+  assert.equal(serverIndexForPin(undefined), null);
+});
+
+test('PIN ranges never overlap between servers', () => {
+  const seen = new Map();
+  for (let index = 0; index < 9; index++) {
+    for (let n = 0; n < 300; n++) {
+      const pin = generatePin(() => false, index);
+      const owner = seen.get(pin);
+      assert.ok(
+        owner === undefined || owner === index,
+        'PIN ' + pin + ' was minted by both server ' + owner + ' and ' + index
+      );
+      seen.set(pin, index);
+    }
+  }
 });
 
 

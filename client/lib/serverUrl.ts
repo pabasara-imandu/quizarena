@@ -1,23 +1,16 @@
+import { defaultServer } from '@/lib/servers';
+
 /**
- * Where the quiz server lives.
+ * Any server in the fleet will do.
  *
- * Three deployment shapes, one rule:
+ * Use this only for stateless work - the sample quiz, spreadsheet import, AI
+ * generation, the CSV template, image uploads. Every instance answers those
+ * identically, so there is nothing to route.
  *
- *  1. `NEXT_PUBLIC_SERVER_URL` set  -> use it. This is local dev
- *     (http://localhost:4000) and split hosting (client on one host, server on
- *     another).
- *  2. Unset, in a browser          -> same origin. This is the reverse-proxy
- *     deployment, where one domain serves the app and forwards `/api` and
- *     `/socket.io` to the server. No CORS, no rebuild to change hosts.
- *  3. Unset, during SSR/build      -> localhost, purely so a build never
- *     crashes. Nothing on the server side actually calls the quiz API.
- *
- * The value is read at call time rather than module load, so it is correct in
- * both the server render pass and the browser.
+ * Anything tied to a *room* must not come through here. A room lives in one
+ * server's memory, so joining it, hosting it or exporting its results has to
+ * go to that instance: see `findServerForPin` and `useSocket().serverUrl`.
  */
 export function serverUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_SERVER_URL?.trim();
-  if (configured) return configured.replace(/\/+$/, '');
-  if (typeof window !== 'undefined') return window.location.origin;
-  return 'http://localhost:4000';
+  return defaultServer();
 }

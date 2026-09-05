@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { Analytics } from '@/lib/types';
 import { ShortAnswerReview, type RegradeChange } from '@/components/host/ShortAnswerReview';
-import { serverUrl } from '@/lib/serverUrl';
+import { useSocket } from '@/lib/socket';
 
 const pct = (n: number) => Math.round(n * 100) + '%';
 const secs = (ms: number | null) => (ms == null ? '—' : (ms / 1000).toFixed(1) + 's');
@@ -25,6 +25,10 @@ export function HostAnalytics({
   onRegrade?: (changes: RegradeChange[]) => Promise<void>;
   regrading?: boolean;
 }) {
+  // The export must come from the instance that holds this room, not from
+  // whichever server this browser happens to have connected to first.
+  const { serverUrl: roomServer } = useSocket();
+
   const [tab, setTab] = useState<
     'questions' | 'students' | 'matrix' | 'integrity' | 'remark'
   >('questions');
@@ -66,7 +70,7 @@ export function HostAnalytics({
   /** The deep export is built server-side and gated on the host token. */
   const matrixHref =
     pin && hostToken
-      ? serverUrl() + '/api/rooms/' + pin + '/export.csv?hostToken=' + encodeURIComponent(hostToken)
+      ? roomServer + '/api/rooms/' + pin + '/export.csv?hostToken=' + encodeURIComponent(hostToken)
       : null;
 
   return (

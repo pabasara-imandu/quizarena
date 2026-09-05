@@ -19,10 +19,12 @@ import type {
   RoomSettings,
 } from '@/lib/types';
 
+import { pickServerForNewRoom } from '@/lib/servers';
+
 const STORE_KEY = 'quizarena.host';
 
 export default function HostPage() {
-  const { status, emit, rtt } = useSocket();
+  const { status, emit, rtt, connectTo, serverUrl } = useSocket();
 
   const [pin, setPin] = useState<string | null>(null);
   const [hostToken, setHostToken] = useState<string | null>(null);
@@ -69,9 +71,17 @@ export default function HostPage() {
     const saved = sessionStorage.getItem(STORE_KEY);
     if (!saved) return;
 
-    const parsed = JSON.parse(saved) as { pin: string; hostToken: string };
+    const parsed = JSON.parse(saved) as { pin: string; hostToken: string; server?: string };
 
-    emit<any>('host:rejoin', parsed)
+    // The room lives on one instance. After a refresh we may have booted
+    // pointing at a different one, so go back to where the room is first.
+    const reclaim =
+      parsed.server && parsed.server !== serverUrl
+        ? connectTo(parsed.server).catch(() => undefined)
+        : Promise.resolve();
+
+    reclaim.then(() =>
+    emit<any>('host:rejoin', { pin: parsed.pin, hostToken: parsed.hostToken })
       .then((res) => {
         if (!res?.ok) {
           sessionStorage.removeItem(STORE_KEY);
@@ -85,8 +95,9 @@ export default function HostPage() {
         applyState(res.state);
         if (res.analytics) setAnalytics(res.analytics);
       })
-      .catch(() => sessionStorage.removeItem(STORE_KEY));
-  }, [status, emit, applyState]);
+      .catch(() => sessionStorage.removeItem(STORE_KEY))
+    );
+  }, [status, emit, applyState, connectTo, serverUrl]);
 
   /* --------------------------------------------------------- socket events */
 
@@ -175,9 +186,30 @@ export default function HostPage() {
   );
 
   const launch = async (quiz: Quiz, roomSettings: RoomSettings) => {
+    // Place the session on the least busy server in the fleet before creating
+    // it. Everything about this room - its host, its students, its state -
+    // then lives there for the rest of the lesson.
+    setBusy(true);
+    setError(null);
+    let host = serverUrl;
+    try {
+      const picked = await pickServerForNewRoom();
+      host = picked.url;
+      await connectTo(picked.url);
+    } catch (err) {
+      setBusy(false);
+      setError((err as Error).message || 'No quiz server answered. Try again in a moment.');
+      return;
+    } finally {
+      setBusy(false);
+    }
+
     const res = await run('host:create', { quiz, settings: roomSettings });
     if (!res?.ok) return;
-    sessionStorage.setItem(STORE_KEY, JSON.stringify({ pin: res.pin, hostToken: res.hostToken }));
+    sessionStorage.setItem(
+      STORE_KEY,
+      JSON.stringify({ pin: res.pin, hostToken: res.hostToken, server: host })
+    );
     setPin(res.pin);
     setHostToken(res.hostToken);
     setQuizTitle(res.quiz.title);

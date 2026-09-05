@@ -187,11 +187,16 @@ hold a WebSocket open.
 | `NODE_ENV` | recommended | `production` |
 | `ANTHROPIC_API_KEY` | no | Turns `/api/generate` from an editable scaffold into real Claude-generated questions. |
 | `REDIS_URL` | no | Only to run more than one server process — see Scaling. |
+| `SERVER_INDEX` | **yes in a fleet** | 0-based. **Unique per server**, and must match the server's position in the client's `NEXT_PUBLIC_SERVER_URLS`. Decides the PIN range this instance mints: `0` → `1xxxxx`, `1` → `2xxxxx`, … |
+| `SERVER_LABEL` | no | Name on the admin dashboard. Defaults to `server-N`. |
+| `SOFT_CAPACITY` | no | Students this instance aims to stay under before new rooms are placed elsewhere. Default 120. Not a hard cap — a running quiz is never turned away. |
+| `ADMIN_TOKEN` | for `/admin` | Shared secret, **the same value on every server**. Unset leaves the admin view closed. |
 
 ### `client/`
 
 | Variable | Required | Notes |
 |---|---|---|
+| `NEXT_PUBLIC_SERVER_URLS` | for a fleet | Comma-separated list of every server, **in `SERVER_INDEX` order**. Takes precedence over `NEXT_PUBLIC_SERVER_URL`. Baked in at build time. |
 | `NEXT_PUBLIC_SERVER_URL` | only for split hosting | The server's public URL. **Leave empty** behind a reverse proxy (Option 3) so the client uses its own origin. **Baked in at build time** — changing it requires a rebuild, not just a restart. |
 | `BUILD_STANDALONE` | no | `true` emits Next's self-contained bundle, which the Dockerfile needs. Leave unset on Netlify/Vercel/Render — their adapters expect a normal build and a standalone one makes every route 404. |
 
@@ -221,18 +226,86 @@ the room still works but feels sluggish. Fix the proxy rather than living with i
 
 ---
 
-## Scaling past one server process
+## Option 5 — A fleet of free servers (a whole district, still £0)
 
-One Node process comfortably handles a few hundred players in a room (measured: 200
-students, p95 3 ms). Before adding processes, add RAM — rooms are small and in-memory.
+One free instance handles a few hundred players. To serve many schools at once without
+paying for anything, run **several free servers and spread whole quiz sessions across
+them**. Four free Render accounts ≈ four times the simultaneous classes.
 
-If you genuinely need more than one:
+### The one rule that shapes everything
 
-1. Set `REDIS_URL`; the Socket.IO Redis adapter attaches automatically at boot.
-2. Configure **sticky sessions on the PIN** at your load balancer. Rooms live in the
-   memory of one process, so every socket for a given room must land on the same node.
+**A room lives entirely in one server's memory.** You cannot put the first 100 students
+of a class on server 1 and the next 100 on server 2 — server 2 has no room with that
+PIN and no way to learn about one. Half the class would be in a room the other half
+could not see.
 
-Uncomment the `redis` service in `docker-compose.yml` if you are self-hosting.
+So the unit that gets spread is a **whole session**, never the students inside one.
+Every quiz is placed on the least-loaded healthy server when the teacher launches it,
+and everyone who types that PIN is sent to the same place. Capacity multiplies; classes
+stay whole.
+
+### How a PIN finds its server
+
+There is no coordinator, no shared database and nothing for you to run. **The PIN is
+the routing.** Each server mints PINs in its own range:
+
+| `SERVER_INDEX` | PINs it mints | Room count available |
+|---|---|---|
+| `0` | `1xxxxx` | 100,000 |
+| `1` | `2xxxxx` | 100,000 |
+| `2` | `3xxxxx` | 100,000 |
+| `3` | `4xxxxx` | 100,000 |
+
+A student typing `342871` is sent straight to server 3 — one request, no guessing. Two
+servers can never mint the same PIN, so a class can never be split in two. If the list
+is misconfigured the client falls back to asking every server in parallel, so joining
+still works; the admin dashboard warns you that it happened.
+
+### Setting it up
+
+1. **Deploy the server N times.** Different free accounts is fine — they never talk to
+   each other. Give each one:
+
+   ```
+   SERVER_INDEX=0        # 0, 1, 2, 3 … unique per server
+   SERVER_LABEL=server-1
+   ADMIN_TOKEN=<the same long random string on every server>
+   CLIENT_ORIGIN=https://your-app.netlify.app
+   ```
+
+2. **Point the client at all of them**, in `SERVER_INDEX` order:
+
+   ```
+   NEXT_PUBLIC_SERVER_URLS=https://quiz-1.onrender.com,https://quiz-2.onrender.com,https://quiz-3.onrender.com,https://quiz-4.onrender.com
+   ```
+
+   Order matters: position in this list must equal that server's `SERVER_INDEX`.
+   Rebuild the client after changing it — it is baked in at build time.
+
+3. **Open `/admin`** and enter the `ADMIN_TOKEN`. You get every server's health, every
+   live session, fleet capacity, and a loud warning if the list is out of order.
+
+### What you get, honestly
+
+- **Capacity multiplies. Per-room limits do not.** Four servers do not make one class
+  bigger; they let four times as many classes run at once.
+- **A server going down takes its rooms with it.** Sessions on the other servers are
+  untouched — that is the upside of sharing nothing — but there is no failover for a
+  room in progress. New rooms route around the dead server automatically.
+- **Free instances sleep after ~15 minutes idle** and take up to a minute to wake. The
+  join flow waits patiently, but the first teacher of the morning will feel it. Hitting
+  `/api/health` on each server a few minutes before a lesson wakes them.
+- **Images live on whichever server they were uploaded to**, which is normally the
+  first one in the list. If that instance is asleep, pictures on a quiz running
+  elsewhere will be slow to appear the first time.
+
+### The other kind of scaling (one big server)
+
+If you would rather run one larger process than several small ones, set `REDIS_URL` —
+the Socket.IO Redis adapter attaches at boot — and configure **sticky sessions on the
+PIN** at your load balancer, because rooms still live in one process's memory. Uncomment
+the `redis` service in `docker-compose.yml` if you are self-hosting. This costs money;
+the fleet above does not.
 
 ---
 
