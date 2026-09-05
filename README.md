@@ -202,10 +202,27 @@ end.
 
 ### Scaling beyond one process
 
-Rooms live in process memory, which is what makes answer handling sub-millisecond. To run multiple
-nodes: set `REDIS_URL` (the Redis adapter attaches automatically) and put **sticky sessions on the
-PIN** at the load balancer. Persist `buildAnalytics()` output if you want history — do not put the
-hot loop behind a database.
+Rooms live in process memory, which is what makes answer handling sub-millisecond — and which
+decides the shape of everything below.
+
+**A room cannot be split across servers.** Putting the first 100 students of a class on one
+instance and the next 100 on another does not share the load; it puts half the class in a room the
+other half cannot see, because the second server has no such PIN and no way to learn about one.
+
+So there are two honest ways to grow:
+
+**A fleet of small servers (free).** Spread *whole sessions*, never the students inside one. Each
+server gets a unique `SERVER_INDEX` and mints PINs in its own range — server 0 issues `1xxxxx`,
+server 1 issues `2xxxxx` — so the PIN itself says where the room lives. The client places each new
+quiz on the least-loaded healthy server and sends everyone who types that PIN to the same place.
+Nothing is shared between the servers: no database, no Redis, no directory, no coordinator. Four
+free instances run four times as many simultaneous classes. Set `NEXT_PUBLIC_SERVER_URLS` on the
+client and watch it from `/admin`. Full walkthrough in `DEPLOY.md`.
+
+**One bigger process (paid).** Set `REDIS_URL` (the Redis adapter attaches automatically) and put
+**sticky sessions on the PIN** at the load balancer, because rooms still live in one process's
+memory. Persist `buildAnalytics()` output if you want history — do not put the hot loop behind a
+database.
 
 ## Interface
 

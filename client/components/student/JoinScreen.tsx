@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { serverUrl } from '@/lib/serverUrl';
+import { findServerForPin } from '@/lib/servers';
 
 
 interface RoomPreview {
@@ -31,6 +31,11 @@ export function JoinScreen({
    * Check the PIN over plain HTTP before opening a socket. It costs one cheap
    * request and saves a student from typing a nickname into a room that does
    * not exist — the single most common join failure in a classroom.
+   *
+   * It also has to search the fleet rather than ask one server: the room is on
+   * whichever instance the teacher's laptop was placed on, which is not
+   * necessarily the one this phone loaded the page from. The PIN's first digit
+   * names that instance, so in practice this is still one request.
    */
   useEffect(() => {
     if (pin.length !== 6) {
@@ -40,8 +45,11 @@ export function JoinScreen({
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(serverUrl() + '/api/rooms/' + pin, { signal: controller.signal });
-        const data: RoomPreview = res.ok ? await res.json() : { found: false };
+        // Short timeout: this is a courtesy check while someone is still
+        // typing, so a sleeping instance should not hold the keyboard up.
+        const found = await findServerForPin(pin, { timeoutMs: 4000 });
+        if (controller.signal.aborted) return;
+        const data: RoomPreview = found ?? { found: false };
         setPreview(data);
         if (data.found) nicknameRef.current?.focus();
       } catch {

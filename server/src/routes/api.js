@@ -8,6 +8,7 @@ import { parseQuizWorkbook } from '../game/importQuiz.js';
 import { generateQuiz } from '../game/generateQuiz.js';
 import { buildMatrixCsv } from '../game/exportCsv.js';
 import { ValidationError } from '../game/quizSchema.js';
+import { config } from '../config.js';
 
 export const api = Router();
 
@@ -26,8 +27,17 @@ const upload = multer({
 
 api.get('/health', (_req, res) => {
   const cpu = process.cpuUsage();
+  const stats = roomStore.stats;
   res.json({
     status: 'ok',
+    // Identity, so a client that fans out across the fleet can tell the
+    // replies apart and spot a misordered server list.
+    serverIndex: config.serverIndex,
+    label: config.serverLabel,
+    pinPrefix: String(config.serverIndex + 1),
+    softCapacity: config.softCapacity,
+    // 0..1+ - what the fleet sorts on when placing a new room.
+    load: config.softCapacity > 0 ? stats.players / config.softCapacity : 0,
     uptimeSec: Math.round(process.uptime()),
     memoryMb: Math.round(process.memoryUsage().heapUsed / 1048576),
     rssMb: Math.round(process.memoryUsage().rss / 1048576),
@@ -58,6 +68,73 @@ api.get('/rooms/:pin', (req, res) => {
 });
 
 api.get('/sample-quiz', (_req, res) => res.json(sampleQuiz));
+
+/* -------------------------------------------------------------------------- */
+/* Admin                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Shared secret across the fleet, checked in constant time.
+ *
+ * With no ADMIN_TOKEN set the endpoint is closed rather than open: a dashboard
+ * listing every live classroom in the country is not something to leave
+ * unlocked because someone forgot an environment variable.
+ */
+function adminOk(req) {
+  if (!config.adminToken) return false;
+  const given = String(req.get('x-admin-token') || req.query.token || '');
+  if (given.length !== config.adminToken.length) return false;
+  let diff = 0;
+  for (let i = 0; i < given.length; i++) diff |= given.charCodeAt(i) ^ config.adminToken.charCodeAt(i);
+  return diff === 0;
+}
+
+/**
+ * Every live session on this instance.
+ *
+ * Deliberately no host tokens, no player ids, no answers and no nicknames -
+ * an operations view needs to know that a room is busy and healthy, not who is
+ * in it or what they said.
+ */
+api.get('/admin/sessions', (req, res) => {
+  if (!adminOk(req)) {
+    return res.status(403).json({
+      error: config.adminToken
+        ? 'Admin credentials rejected.'
+        : 'This server has no ADMIN_TOKEN set, so the admin view is closed.',
+    });
+  }
+
+  const now = Date.now();
+  const sessions = [...roomStore.rooms.values()].map((room) => ({
+    pin: room.pin,
+    quizTitle: room.quiz.title,
+    phase: room.phase,
+    questionIndex: room.currentIndex,
+    questionCount: room.totalQuestions,
+    players: room.players.size,
+    connected: room.connectedCount,
+    hostOnline: !!room.hostSocketId,
+    createdAt: room.createdAt,
+    ageSec: Math.round((now - room.createdAt) / 1000),
+    idleSec: Math.round((now - room.lastActivityAt) / 1000),
+    flagged: [...room.players.values()].filter((p) => p.strikes > 0 || p.tabSwitches > 0).length,
+  }));
+
+  const cpu = process.cpuUsage();
+  res.json({
+    serverIndex: config.serverIndex,
+    label: config.serverLabel,
+    pinPrefix: String(config.serverIndex + 1),
+    softCapacity: config.softCapacity,
+    uptimeSec: Math.round(process.uptime()),
+    rssMb: Math.round(process.memoryUsage().rss / 1048576),
+    cpuMs: Math.round((cpu.user + cpu.system) / 1000),
+    ...roomStore.stats,
+    ...imageStore.stats,
+    sessions: sessions.sort((a, b) => b.players - a.players),
+  });
+});
 
 /* -------------------------------------------------------------------------- */
 /* Image upload                                                               */
