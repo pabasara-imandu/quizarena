@@ -20,6 +20,8 @@ import type {
 } from '@/lib/types';
 
 import { pickServerForNewRoom } from '@/lib/servers';
+import { PastResults } from '@/components/host/PastResults';
+import { archiveResults } from '@/lib/resultsArchive';
 
 const STORE_KEY = 'quizarena.host';
 
@@ -153,6 +155,9 @@ export default function HostPage() {
   useSocketEvent<Analytics>('game:over', (p) => {
     setPhase('ended');
     setAnalytics(p);
+    // Straight to the device, before anyone can close a tab or a room can be
+    // swept. This is the copy that survives everything else going wrong.
+    archiveResults(p);
   });
 
   useSocketEvent<IntegrityEntry>('integrity:alert', (entry) => {
@@ -245,7 +250,22 @@ export default function HostPage() {
    */
   const regrade = async (changes: RegradeChange[]) => {
     const res = await run('host:regrade', { changes });
-    if (res?.ok && res.analytics) setAnalytics(res.analytics);
+    if (res?.ok && res.analytics) {
+      setAnalytics(res.analytics);
+      archiveResults(res.analytics, { regraded: true });
+    }
+  };
+
+  /**
+   * Show a finished quiz that has no room behind it - reopened from this
+   * device, or from a backup file. Everything on the results screen works
+   * except re-marking, which needs a live room to recompute against.
+   */
+  const openArchived = (data: Analytics) => {
+    setAnalytics(data);
+    setPhase('ended');
+    setPin(null);
+    setHostToken(null);
   };
 
   const restart = () => {
@@ -312,7 +332,12 @@ export default function HostPage() {
         </div>
       )}
 
-      {!pin && <QuizCreator onLaunch={launch} busy={busy} error={null} />}
+      {!pin && !analytics && (
+        <div className="space-y-5">
+          <QuizCreator onLaunch={launch} busy={busy} error={null} />
+          <PastResults onOpen={openArchived} />
+        </div>
+      )}
 
       {pin && phase === 'lobby' && editing && quiz && settings && (
         <QuizCreator
@@ -367,7 +392,9 @@ export default function HostPage() {
           pin={pin}
           hostToken={hostToken}
           onRestart={restart}
-          onRegrade={regrade}
+          // Re-marking recomputes against the live room, so it is only offered
+          // while there is one. A reopened archive is read-and-export only.
+          onRegrade={pin ? regrade : undefined}
           regrading={busy}
         />
       )}

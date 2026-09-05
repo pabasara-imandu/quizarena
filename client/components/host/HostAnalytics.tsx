@@ -3,7 +3,12 @@
 import { useMemo, useState } from 'react';
 import type { Analytics } from '@/lib/types';
 import { ShortAnswerReview, type RegradeChange } from '@/components/host/ShortAnswerReview';
-import { useSocket } from '@/lib/socket';
+import {
+  buildGradebookCsv,
+  buildSummaryCsv,
+  downloadText,
+  exportStem,
+} from '@/lib/exportCsv';
 
 const pct = (n: number) => Math.round(n * 100) + '%';
 const secs = (ms: number | null) => (ms == null ? '—' : (ms / 1000).toFixed(1) + 's');
@@ -25,53 +30,24 @@ export function HostAnalytics({
   onRegrade?: (changes: RegradeChange[]) => Promise<void>;
   regrading?: boolean;
 }) {
-  // The export must come from the instance that holds this room, not from
-  // whichever server this browser happens to have connected to first.
-  const { serverUrl: roomServer } = useSocket();
-
   const [tab, setTab] = useState<
     'questions' | 'students' | 'matrix' | 'integrity' | 'remark'
   >('questions');
 
   const shortAnswerCount = data.perQuestion.filter((q) => q.type === 'short').length;
 
-  /** Quick summary CSV, built client-side so it works even if the room is gone. */
-  const csvHref = useMemo(() => {
-    const rows = [
-      ['Rank', 'Nickname', 'Score', 'Answered', 'Correct', 'Skipped', 'Accuracy', 'Avg time (s)', 'Best streak', 'Warnings', 'Tab switches'],
-      ...data.players.map((p) => [
-        p.rank,
-        p.nickname,
-        p.score,
-        p.answeredCount,
-        p.correctCount,
-        p.skippedCount ?? 0,
-        (p.accuracy * 100).toFixed(1),
-        p.averageResponseMs == null ? '' : (p.averageResponseMs / 1000).toFixed(2),
-        p.bestStreak,
-        p.strikes,
-        p.tabSwitches,
-      ]),
-    ];
-    const csv = rows
-      .map((r) =>
-        r
-          // Same formula-injection guard as the server-side export.
-          .map((cell) => {
-            const text = /^[=+\-@]/.test(String(cell)) ? "'" + cell : String(cell);
-            return '"' + text.replace(/"/g, '""') + '"';
-          })
-          .join(',')
-      )
-      .join('\r\n');
-    return 'data:text/csv;charset=utf-8,' + encodeURIComponent('﻿' + csv);
-  }, [data.players]);
+  /**
+   * Both exports are built here, in the browser, from the payload already on
+   * screen. The deep one used to be a server link gated on the room still
+   * existing, and that cost a school its marks when the room was swept while
+   * the teacher was reading this very screen.
+   */
+  const stem = useMemo(() => exportStem(data), [data]);
 
-  /** The deep export is built server-side and gated on the host token. */
-  const matrixHref =
-    pin && hostToken
-      ? roomServer + '/api/rooms/' + pin + '/export.csv?hostToken=' + encodeURIComponent(hostToken)
-      : null;
+  const saveSummary = () => downloadText(stem + '-summary.csv', buildSummaryCsv(data));
+  const saveGradebook = () => downloadText(stem + '-gradebook.csv', buildGradebookCsv(data));
+  const saveBackup = () =>
+    downloadText(stem + '.json', JSON.stringify(data, null, 2), 'application/json');
 
   return (
     <div className="space-y-6">
@@ -118,24 +94,24 @@ export function HostAnalytics({
         </div>
 
         <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <a className="btn-secondary" href={csvHref} download={'quiz-results-' + data.pin + '.csv'}>
+          <button className="btn-secondary" type="button" onClick={saveSummary}>
             Summary (CSV)
-          </a>
-          {matrixHref && (
-            <a className="btn-secondary" href={matrixHref}>
-              Full gradebook (CSV)
-            </a>
-          )}
+          </button>
+          <button className="btn-secondary" type="button" onClick={saveGradebook}>
+            Full gradebook (CSV)
+          </button>
+          <button className="btn-ghost" type="button" onClick={saveBackup} title="Everything, as a file you can reopen here later">
+            Backup (JSON)
+          </button>
           <button className="btn-primary btn-lg" type="button" onClick={onRestart}>
             Host another quiz
           </button>
         </div>
-        {matrixHref && (
-          <p className="mt-2 text-xs text-slate-500">
-            The gradebook has every student against every question, plus per-question and
-            answer-level breakdowns.
-          </p>
-        )}
+        <p className="mt-2 text-xs text-slate-500">
+          The gradebook has every student against every question, plus per-question and
+          answer-level breakdowns. All three are built on this device — they keep working
+          if the room has closed.
+        </p>
       </div>
 
       {/* The headline teaching insight: what the class did not understand. */}
