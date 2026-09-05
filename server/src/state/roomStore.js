@@ -1,6 +1,6 @@
 import { config } from '../config.js';
 import { generatePin } from '../utils/pin.js';
-import { Room } from '../game/room.js';
+import { Room, PHASE } from '../game/room.js';
 
 /**
  * In-memory room registry.
@@ -65,7 +65,23 @@ class RoomStore {
     const cutoff = Date.now() - config.roomTtlMs;
     for (const [pin, room] of this.rooms) {
       const idle = room.lastActivityAt < cutoff;
-      const abandoned = !room.hostSocketId && room.connectedCount === 0;
+
+      /**
+       * A finished room is a class's results, not litter.
+       *
+       * The abandoned sweep exists for rooms nobody ever used - a PIN opened by
+       * mistake, a lobby closed before anyone joined. It used to catch ended
+       * rooms too, and that lost a real school's marks: once the students shut
+       * their tabs and the teacher's socket dropped for a moment - a sleeping
+       * laptop, a backgrounded tab, one flaky minute of Wi-Fi - the room was
+       * "abandoned", and five minutes later the results were deleted while the
+       * teacher was still reading them on screen.
+       *
+       * Finished rooms now keep the full room lifetime, connected or not.
+       */
+      const holdsResults = room.phase === PHASE.ENDED;
+      const abandoned = !holdsResults && !room.hostSocketId && room.connectedCount === 0;
+
       if (idle || (abandoned && room.lastActivityAt < Date.now() - 5 * 60_000)) {
         if (room.timer) clearTimeout(room.timer);
         this.rooms.delete(pin);

@@ -15,6 +15,7 @@ import express from 'express';
 import helmet from 'helmet';
 import { api } from '../src/routes/api.js';
 import { generatePin, serverIndexForPin } from '../src/utils/pin.js';
+import { roomStore } from '../src/state/roomStore.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -632,6 +633,39 @@ test('the quiz is frozen once the first question has started', () => {
   const before = room.quiz.title;
   assert.equal(room.replaceQuiz({ quiz: normalizeQuiz({ title: 'Nope', questions: quiz.questions }) }), false);
   assert.equal(room.quiz.title, before, 'the live quiz is untouched');
+});
+
+
+console.log('\nkeeping results');
+
+test('a finished room is not swept while nobody is connected', () => {
+  // The bug this guards against lost a real school's marks. Once the students
+  // closed their tabs and the teacher's socket dropped for a moment, an ENDED
+  // room counted as abandoned litter and was deleted five minutes later -
+  // while the teacher was still reading the results on screen.
+  const room = roomStore.create({ quiz, settings: {}, hostSocketId: 'h1' });
+  room.addPlayer({ nickname: 'Ada', socketId: 's1' });
+  room.markDisconnected('s1');
+  room.phase = PHASE.ENDED;
+  room.hostSocketId = null;                       // teacher's socket dropped
+  room.lastActivityAt = Date.now() - 30 * 60_000; // half an hour ago
+
+  roomStore.collectGarbage();
+
+  assert.ok(roomStore.get(room.pin), 'results must survive an idle, disconnected room');
+  roomStore.rooms.delete(room.pin);
+});
+
+test('an unused lobby is still swept', () => {
+  // The abandoned sweep still has to do its job, or a PIN opened by mistake
+  // would sit in memory until the full room lifetime expired.
+  const room = roomStore.create({ quiz, settings: {}, hostSocketId: 'h2' });
+  room.hostSocketId = null;
+  room.lastActivityAt = Date.now() - 30 * 60_000;
+
+  roomStore.collectGarbage();
+
+  assert.equal(roomStore.get(room.pin), undefined, 'an empty abandoned lobby is litter');
 });
 
 
