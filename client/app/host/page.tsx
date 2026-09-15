@@ -22,6 +22,8 @@ import type {
 import { pickServerForNewRoom } from '@/lib/servers';
 import { PastResults } from '@/components/host/PastResults';
 import { archiveResults } from '@/lib/resultsArchive';
+import { HostIdentity } from '@/components/host/HostIdentity';
+import { loadIdentity, signInConfigured, type HostIdentity as Identity } from '@/lib/googleAuth';
 
 const STORE_KEY = 'quizarena.host';
 
@@ -34,6 +36,18 @@ export default function HostPage() {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [settings, setSettings] = useState<RoomSettings | null>(null);
   const [editing, setEditing] = useState(false);
+  /** Who is hosting, if they signed in. Restored from the device on load. */
+  const [identity, setIdentity] = useState<Identity | null>(null);
+  /** What the server decided about this room: its size, and why. */
+  const [roomInfo, setRoomInfo] = useState<{
+    maxPlayers: number;
+    verified: boolean;
+    signInAvailable: boolean;
+  } | null>(null);
+
+  // localStorage is browser-only; reading it in the initial state would break
+  // hydration. And an expired token is dropped here rather than shown.
+  useEffect(() => setIdentity(loadIdentity()), []);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [phase, setPhase] = useState<Phase>('lobby');
   const [question, setQuestion] = useState<LiveQuestion | null>(null);
@@ -95,6 +109,13 @@ export default function HostPage() {
         setQuiz(res.quiz);
         setSettings(res.settings);
         applyState(res.state);
+        if (res.maxPlayers) {
+          setRoomInfo({
+            maxPlayers: res.maxPlayers,
+            verified: !!res.host?.verified,
+            signInAvailable: !!res.signInAvailable,
+          });
+        }
         if (res.analytics) setAnalytics(res.analytics);
       })
       .catch(() => sessionStorage.removeItem(STORE_KEY))
@@ -209,8 +230,29 @@ export default function HostPage() {
       setBusy(false);
     }
 
-    const res = await run('host:create', { quiz, settings: roomSettings });
+    const res = await run('host:create', {
+      quiz,
+      settings: roomSettings,
+      // Optional. The server verifies it and decides the room size; a stale
+      // token means a smaller room, never a refusal.
+      idToken: identity?.credential ?? null,
+    });
     if (!res?.ok) return;
+    setRoomInfo({
+      maxPlayers: res.maxPlayers,
+      verified: !!res.host?.verified,
+      signInAvailable: !!res.signInAvailable,
+    });
+    // The server is the authority: if it did not accept the token, say so
+    // rather than leaving a name in the corner that bought nothing.
+    if (identity && res.signInAvailable && !res.host?.verified) {
+      setError(
+        'Your Google sign-in had expired, so this room is limited to ' +
+          res.maxPlayers +
+          ' students. Sign in again before the next quiz for a full-size room.'
+      );
+      setIdentity(null);
+    }
     sessionStorage.setItem(
       STORE_KEY,
       JSON.stringify({ pin: res.pin, hostToken: res.hostToken, server: host })
@@ -274,6 +316,7 @@ export default function HostPage() {
     setHostToken(null);
     setQuiz(null);
     setEditing(false);
+    setRoomInfo(null);
     setAnalytics(null);
     setPhase('lobby');
     setQuestion(null);
@@ -300,7 +343,8 @@ export default function HostPage() {
           </span>
         )}
 
-        <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
+        <div className="ml-auto flex items-center gap-3 text-xs text-slate-500">
+          <HostIdentity identity={identity} onChange={setIdentity} />
           <span
             className={
               'h-2 w-2 rounded-full ' +
@@ -360,6 +404,8 @@ export default function HostPage() {
           onEdit={quiz && settings ? () => setEditing(true) : undefined}
           questionCount={totalQuestions}
           reactionBurst={reactionBurst}
+          maxPlayers={roomInfo?.maxPlayers}
+          limitedBecauseAnonymous={!!roomInfo && roomInfo.signInAvailable && !roomInfo.verified}
         />
       )}
 

@@ -669,6 +669,43 @@ test('an unused lobby is still swept', () => {
 });
 
 
+console.log('\nhost sign-in and room size');
+
+test('a room remembers only the verified claims of its host, never the token', () => {
+  const room = new Room({
+    pin: '777777', quiz, settings: {}, hostSocketId: 'h',
+    host: { verified: true, sub: '123', name: 'Ms Perera', email: 'p@school.lk', picture: null, idToken: 'SECRET' },
+    maxPlayers: 500,
+  });
+  assert.equal(room.host.verified, true);
+  assert.equal(room.host.name, 'Ms Perera');
+  assert.equal('idToken' in room.host, false, 'the token must not be retained');
+  assert.equal(room.maxPlayers, 500);
+});
+
+test('an unverified host gets an anonymous room', () => {
+  const room = new Room({ pin: '777778', quiz, settings: {}, hostSocketId: 'h', host: null, maxPlayers: 20 });
+  assert.deepEqual(room.host, { verified: false });
+  assert.equal(room.maxPlayers, 20);
+});
+
+test('the room size is fixed at creation', () => {
+  // Signing in halfway through a lesson does not enlarge the room - the size
+  // is a property of the room, decided once, so it cannot drift mid-quiz.
+  const room = new Room({ pin: '777779', quiz, settings: {}, hostSocketId: 'h', maxPlayers: 20 });
+  room.host = { verified: true, name: 'Late sign-in' };
+  assert.equal(room.maxPlayers, 20);
+});
+
+test('a forged claim without verified:true is still anonymous', () => {
+  // The socket layer only ever passes the result of verifyHostIdToken here,
+  // but the Room must not trust a bare object either.
+  const room = new Room({ pin: '777780', quiz, settings: {}, hostSocketId: 'h',
+    host: { name: 'Anyone', email: 'x@y.z' }, maxPlayers: 20 });
+  assert.equal(room.host.verified, false);
+});
+
+
 console.log('\nfleet sharding');
 
 test('each server mints PINs only in its own range', () => {

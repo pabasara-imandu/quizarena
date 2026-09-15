@@ -154,6 +154,54 @@ export function buildGradebookCsv(analytics: Analytics): string {
   return toCsv(rows);
 }
 
+/**
+ * The student-wise gradebook: one row per (student, question).
+ *
+ * The wide gradebook above is one row per student with a column group per
+ * question, which is the right shape for scanning a class. This is the right
+ * shape for *one child* - every question they faced, in order, what they
+ * answered, whether it was right, and what it earned - and it is the shape a
+ * spreadsheet can filter, sort and pivot without any reshaping.
+ */
+export function buildPerStudentCsv(analytics: Analytics): string {
+  const { matrix } = analytics;
+  const rows: unknown[][] = [];
+
+  rows.push(['QuizArena results', analytics.quizTitle]);
+  rows.push(['Finished', new Date(analytics.finishedAt).toISOString()]);
+  rows.push([]);
+  rows.push([
+    'Student',
+    'Rank',
+    'Total score',
+    'Question',
+    'Question text',
+    'Their answer',
+    'Correct?',
+    'Marks',
+    'Time (s)',
+  ]);
+
+  for (const row of matrix.rows) {
+    row.cells.forEach((cell, i) => {
+      const q = matrix.questions[i];
+      rows.push([
+        row.nickname,
+        row.rank,
+        row.score,
+        'Q' + (q.position + 1),
+        q.text,
+        cell.status === 'no_answer' ? '(no answer)' : cell.status === 'skipped' ? '(skipped)' : cell.response ?? '',
+        cell.status === 'correct' ? 'Yes' : cell.status === 'incorrect' ? 'No' : '',
+        cell.points ?? 0,
+        cell.responseMs == null ? '' : (cell.responseMs / 1000).toFixed(2),
+      ]);
+    });
+  }
+
+  return toCsv(rows);
+}
+
 /** Rank, score and integrity flags: the quick one a teacher pastes into a mark book. */
 export function buildSummaryCsv(analytics: Analytics): string {
   return toCsv([

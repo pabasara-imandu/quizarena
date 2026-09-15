@@ -3,6 +3,7 @@ import { roomStore } from '../state/roomStore.js';
 import { PHASE } from '../game/room.js';
 import { normalizeQuiz, normalizeSettings, ValidationError } from '../game/quizSchema.js';
 import { createBucket, sanitizeNickname } from '../utils/rateLimit.js';
+import { signInEnabled, verifyHostIdToken } from '../auth/google.js';
 import {
   emitToPlayer,
   channels,
@@ -69,12 +70,20 @@ export function registerSocketHandlers(io) {
 
     /* ---------------------------------------------------------------- host */
 
-    socket.on('host:create', (payload, cb) => {
+    socket.on('host:create', async (payload, cb) => {
       if (!heavyBucket()) return respond(cb, fail('Slow down a moment.', 'rate_limited'));
       try {
         const quiz = normalizeQuiz(payload?.quiz);
         const settings = normalizeSettings(payload?.settings);
-        const room = roomStore.create({ quiz, settings, hostSocketId: socket.id });
+
+        // Identity is optional and decides one thing: how big the room may be.
+        // A stale or forged token degrades to the smaller room, never to a
+        // refusal - a teacher must always be able to run a lesson.
+        const host = await verifyHostIdToken(payload?.idToken);
+        const maxPlayers =
+          host?.verified || !signInEnabled() ? config.maxPlayersPerRoom : config.anonMaxPlayers;
+
+        const room = roomStore.create({ quiz, settings, hostSocketId: socket.id, host, maxPlayers });
 
         socket.join([channels.all(room.pin), channels.host(room.pin)]);
         roomStore.bindSocket(socket.id, { pin: room.pin, role: 'host', playerId: null });
@@ -87,6 +96,11 @@ export function registerSocketHandlers(io) {
             quiz: room.quiz,
             settings: room.settings,
             state: snapshotFor(room),
+            host: room.host,
+            maxPlayers: room.maxPlayers,
+            // So the lobby can say "sign in to lift this" only when that is
+            // actually possible on this server.
+            signInAvailable: signInEnabled(),
           })
         );
       } catch (err) {
@@ -120,6 +134,9 @@ export function registerSocketHandlers(io) {
           settings: room.settings,
           state: snapshotFor(room),
           analytics: room.phase === PHASE.ENDED ? room.buildAnalytics() : null,
+          host: room.host,
+          maxPlayers: room.maxPlayers,
+          signInAvailable: signInEnabled(),
         })
       );
       emitHostSync(io, room);
@@ -310,8 +327,17 @@ export function registerSocketHandlers(io) {
         if (room.phase !== PHASE.LOBBY && !room.settings.allowLateJoin) {
           return respond(cb, fail('This quiz is already in progress.', 'in_progress'));
         }
-        if (room.players.size >= config.maxPlayersPerRoom) {
-          return respond(cb, fail('This room is full.', 'full'));
+        if (room.players.size >= room.maxPlayers) {
+          return respond(
+            cb,
+            fail(
+              'This room is full (' +
+                room.maxPlayers +
+                ' students).' +
+                (room.host.verified ? '' : ' The host can sign in to allow more.'),
+              'full'
+            )
+          );
         }
       }
 

@@ -24,9 +24,9 @@ class RoomStore {
     this.gcTimer.unref?.();
   }
 
-  create({ quiz, settings, hostSocketId }) {
+  create({ quiz, settings, hostSocketId, host = null, maxPlayers = null }) {
     const pin = generatePin((p) => this.rooms.has(p));
-    const room = new Room({ pin, quiz, settings, hostSocketId });
+    const room = new Room({ pin, quiz, settings, hostSocketId, host, maxPlayers });
     this.rooms.set(pin, room);
     return room;
   }

@@ -37,6 +37,18 @@ export const config = {
    */
   softCapacity: Number(process.env.SOFT_CAPACITY || 120),
   adminToken: (process.env.ADMIN_TOKEN || '').trim(),
+  /**
+   * Optional Google sign-in for hosts. Unset means nobody can sign in, so the
+   * anonymous cap is not applied either - a school self-hosting without Google
+   * should not find every room silently limited with no way to lift it.
+   */
+  googleClientId: (process.env.GOOGLE_CLIENT_ID || '').trim(),
+  googleAllowedDomains: (process.env.GOOGLE_ALLOWED_DOMAINS || '')
+    .split(',')
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean),
+  /** Room size for a host who has not signed in, when sign-in is available. */
+  anonMaxPlayers: Number(process.env.ANON_MAX_PLAYERS || 20),
   clientOrigin: parseOrigins(process.env.CLIENT_ORIGIN),
   originIsWildcard: (process.env.CLIENT_ORIGIN || '').trim() === '*',
   redisUrl: process.env.REDIS_URL || null,

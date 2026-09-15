@@ -17,6 +17,8 @@ export function HostLobby({
   onKick,
   onEdit,
   questionCount,
+  maxPlayers,
+  limitedBecauseAnonymous = false,
   starting,
   reactionBurst,
 }: {
@@ -28,6 +30,10 @@ export function HostLobby({
   /** Absent until the room's quiz is known (e.g. straight after a reconnect). */
   onEdit?: () => void;
   questionCount?: number;
+  /** The room's size, decided by the server at creation. */
+  maxPlayers?: number;
+  /** True when a sign-in would have made the room bigger. */
+  limitedBecauseAnonymous?: boolean;
   starting: boolean;
   reactionBurst?: { reactions: { emoji: string; count: number }[]; at: number } | null;
 }) {
@@ -95,11 +101,29 @@ export function HostLobby({
               <span className="animate-breathe">Waiting for the first player…</span>
             ) : (
               <>
-                <b className="text-slate-300 nums">{players.length}</b>{' '}
+                <b className="text-slate-300 nums">{players.length}</b>
+                {maxPlayers ? <span className="nums text-slate-600"> / {maxPlayers}</span> : null}{' '}
                 {players.length === 1 ? 'player is' : 'players are'} ready
               </>
             )}
           </p>
+
+          {/* Said here, on the projector screen, before the thirty-first
+              student tries to join - not discovered as a refusal on a phone. */}
+          {limitedBecauseAnonymous && maxPlayers && (
+            <p
+              className={
+                'mx-auto mt-4 max-w-md rounded-xl px-4 py-2.5 text-[13px] leading-relaxed ' +
+                (players.length >= maxPlayers
+                  ? 'bg-rose-500/10 text-rose-200'
+                  : 'bg-amber-500/[0.08] text-amber-200/90')
+              }
+            >
+              {players.length >= maxPlayers ? 'This room is full. ' : ''}
+              Rooms are limited to <b className="nums">{maxPlayers}</b> students without signing
+              in. Sign in with Google before your next quiz to lift the limit.
+            </p>
+          )}
           <p className="mt-1.5 text-xs text-slate-600">
             {quizTitle}
             {questionCount ? ' · ' + questionCount + (questionCount === 1 ? ' question' : ' questions') : ''}

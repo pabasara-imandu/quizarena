@@ -27,8 +27,17 @@ export const PHASE = {
  *    landing in the same second produce a handful of frames, not 100.
  */
 export class Room {
-  constructor({ pin, quiz, settings, hostSocketId }) {
+  constructor({ pin, quiz, settings, hostSocketId, host = null, maxPlayers = null }) {
     this.pin = pin;
+    /**
+     * Who is hosting, if they signed in. Students never have one of these.
+     * Only the verified claims are kept - never the token they came from.
+     */
+    this.host = host && host.verified
+      ? { verified: true, sub: host.sub, name: host.name, email: host.email, picture: host.picture }
+      : { verified: false };
+    /** Fixed at creation: signing in mid-lesson does not enlarge a room. */
+    this.maxPlayers = maxPlayers ?? config.maxPlayersPerRoom;
     this.id = randomUUID();
     this.hostToken = randomUUID();
     this.hostSocketId = hostSocketId;

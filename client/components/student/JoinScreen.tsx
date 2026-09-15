@@ -8,6 +8,8 @@ interface RoomPreview {
   found: boolean;
   quizTitle?: string;
   playerCount?: number;
+  maxPlayers?: number;
+  full?: boolean;
   acceptingJoins?: boolean;
 }
 
@@ -64,7 +66,7 @@ export function JoinScreen({
   }, [pin]);
 
   const ready = pin.length === 6 && nickname.trim().length >= 2 && !busy;
-  const found = preview?.found && preview.acceptingJoins;
+  const found = preview?.found && preview.acceptingJoins && !preview.full;
 
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center px-5 py-10">
@@ -113,6 +115,11 @@ export function JoinScreen({
             )}
             {preview?.found && !preview.acceptingJoins && (
               <span className="text-amber-300">That quiz has already started.</span>
+            )}
+            {preview?.found && preview.acceptingJoins && preview.full && (
+              <span className="text-amber-300">
+                That room is full ({preview.maxPlayers} students). Ask your teacher.
+              </span>
             )}
           </div>
         </div>

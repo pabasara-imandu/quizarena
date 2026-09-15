@@ -9,6 +9,7 @@ import { generateQuiz } from '../game/generateQuiz.js';
 import { buildMatrixCsv } from '../game/exportCsv.js';
 import { ValidationError } from '../game/quizSchema.js';
 import { config } from '../config.js';
+import { signInEnabled } from '../auth/google.js';
 
 export const api = Router();
 
@@ -62,8 +63,19 @@ api.get('/rooms/:pin', (req, res) => {
     quizTitle: room.quiz.title,
     phase: room.phase,
     playerCount: room.players.size,
+    maxPlayers: room.maxPlayers,
+    full: room.players.size >= room.maxPlayers,
     acceptingJoins: room.phase === 'lobby' || room.settings.allowLateJoin,
     requireFullscreen: room.settings.requireFullscreen,
+  });
+});
+
+/** What this server offers hosts, so the app can explain limits truthfully. */
+api.get('/limits', (_req, res) => {
+  res.json({
+    signInAvailable: signInEnabled(),
+    anonMaxPlayers: signInEnabled() ? config.anonMaxPlayers : config.maxPlayersPerRoom,
+    maxPlayers: config.maxPlayersPerRoom,
   });
 });
 
@@ -113,8 +125,13 @@ api.get('/admin/sessions', (req, res) => {
     questionIndex: room.currentIndex,
     questionCount: room.totalQuestions,
     players: room.players.size,
+    maxPlayers: room.maxPlayers,
     connected: room.connectedCount,
     hostOnline: !!room.hostSocketId,
+    // The display name a signed-in teacher chose to show Google - useful for
+    // accountability across a district. Never the email, never the token.
+    hostVerified: room.host.verified,
+    hostName: room.host.verified ? room.host.name : null,
     createdAt: room.createdAt,
     ageSec: Math.round((now - room.createdAt) / 1000),
     idleSec: Math.round((now - room.lastActivityAt) / 1000),

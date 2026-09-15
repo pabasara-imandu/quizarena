@@ -191,11 +191,15 @@ hold a WebSocket open.
 | `SERVER_LABEL` | no | Name on the admin dashboard. Defaults to `server-N`. |
 | `SOFT_CAPACITY` | no | Students this instance aims to stay under before new rooms are placed elsewhere. Default 120. Not a hard cap — a running quiz is never turned away. |
 | `ADMIN_TOKEN` | for `/admin` | Shared secret, **the same value on every server**. Unset leaves the admin view closed. |
+| `GOOGLE_CLIENT_ID` | for host sign-in | OAuth client ID from Google Cloud Console (Web application; add your app origin as an authorised JavaScript origin). Same value as the client's `NEXT_PUBLIC_GOOGLE_CLIENT_ID`. **Unset = nobody can sign in and the anonymous cap is not applied.** |
+| `GOOGLE_ALLOWED_DOMAINS` | no | Comma-separated email domains that count as signed in, e.g. `ananda.lk`. Empty accepts any Google account. |
+| `ANON_MAX_PLAYERS` | no | Room size for a host who has not signed in, when sign-in is available. Default 20. |
 
 ### `client/`
 
 | Variable | Required | Notes |
 |---|---|---|
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | for host sign-in | Same value as the server's `GOOGLE_CLIENT_ID`. Empty hides the sign-in button. Baked in at build time. |
 | `NEXT_PUBLIC_SERVER_URLS` | for a fleet | Comma-separated list of every server, **in `SERVER_INDEX` order**. Takes precedence over `NEXT_PUBLIC_SERVER_URL`. Baked in at build time. |
 | `NEXT_PUBLIC_SERVER_URL` | only for split hosting | The server's public URL. **Leave empty** behind a reverse proxy (Option 3) so the client uses its own origin. **Baked in at build time** — changing it requires a rebuild, not just a restart. |
 | `BUILD_STANDALONE` | no | `true` emits Next's self-contained bundle, which the Dockerfile needs. Leave unset on Netlify/Vercel/Render — their adapters expect a normal build and a standalone one makes every route 404. |

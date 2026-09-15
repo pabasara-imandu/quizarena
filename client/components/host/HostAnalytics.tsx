@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import type { Analytics } from '@/lib/types';
 import { ShortAnswerReview, type RegradeChange } from '@/components/host/ShortAnswerReview';
 import {
   buildGradebookCsv,
+  buildPerStudentCsv,
   buildSummaryCsv,
   downloadText,
   exportStem,
@@ -46,6 +47,7 @@ export function HostAnalytics({
 
   const saveSummary = () => downloadText(stem + '-summary.csv', buildSummaryCsv(data));
   const saveGradebook = () => downloadText(stem + '-gradebook.csv', buildGradebookCsv(data));
+  const savePerStudent = () => downloadText(stem + '-per-student.csv', buildPerStudentCsv(data));
   const saveBackup = () =>
     downloadText(stem + '.json', JSON.stringify(data, null, 2), 'application/json');
 
@@ -100,6 +102,9 @@ export function HostAnalytics({
           <button className="btn-secondary" type="button" onClick={saveGradebook}>
             Full gradebook (CSV)
           </button>
+          <button className="btn-secondary" type="button" onClick={savePerStudent}>
+            Per-student (CSV)
+          </button>
           <button className="btn-ghost" type="button" onClick={saveBackup} title="Everything, as a file you can reopen here later">
             Backup (JSON)
           </button>
@@ -108,9 +113,9 @@ export function HostAnalytics({
           </button>
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          The gradebook has every student against every question, plus per-question and
-          answer-level breakdowns. All three are built on this device — they keep working
-          if the room has closed.
+          The gradebook is one row per student with a column per question; per-student is one
+          row per answer, ready to filter or pivot. All of these are built on this device — they
+          keep working if the room has closed.
         </p>
       </div>
 
@@ -259,52 +264,7 @@ export function HostAnalytics({
 
       {tab === 'matrix' && <MatrixTable data={data} />}
 
-      {tab === 'students' && (
-        <div className="surface overflow-x-auto p-5">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="py-2 pr-3">#</th>
-                <th className="py-2 pr-3">Student</th>
-                <th className="py-2 pr-3 text-right">Score</th>
-                <th className="py-2 pr-3 text-right">Correct</th>
-                <th className="py-2 pr-3 text-right">Accuracy</th>
-                <th className="py-2 pr-3 text-right">Avg time</th>
-                <th className="py-2 pr-3 text-right">Streak</th>
-                <th className="py-2 text-right">Flags</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {data.players.map((p) => (
-                <tr key={p.id}>
-                  <td className="py-2 pr-3 nums text-slate-500">{p.rank}</td>
-                  <td className="py-2 pr-3 font-medium">{p.nickname}</td>
-                  <td className="py-2 pr-3 text-right nums font-semibold text-brand-300">
-                    {p.score.toLocaleString()}
-                  </td>
-                  <td className="py-2 pr-3 text-right nums">
-                    {p.correctCount}/{p.answeredCount}
-                  </td>
-                  <td className="py-2 pr-3 text-right nums">{pct(p.accuracy)}</td>
-                  <td className="py-2 pr-3 text-right nums">
-                    {secs(p.averageResponseMs)}
-                  </td>
-                  <td className="py-2 pr-3 text-right nums">{p.bestStreak}</td>
-                  <td className="py-2 text-right">
-                    {p.strikes + p.tabSwitches > 0 ? (
-                      <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
-                        {p.tabSwitches} tab · {p.fullscreenExits} fs
-                      </span>
-                    ) : (
-                      <span className="text-slate-600">clean</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {tab === 'students' && <StudentBreakdown data={data} />}
 
       {tab === 'integrity' && (
         <div className="surface p-5">
@@ -457,6 +417,139 @@ function MatrixTable({ data }: { data: Analytics }) {
           <span className="rounded bg-white/5 px-1.5 py-0.5 text-slate-500">·</span> no answer
         </span>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The student-wise gradebook: every student, and under each one every question
+ * they faced with what they answered, whether it was right, and what it earned.
+ *
+ * The summary row is what a teacher scans; the expansion is what they open when
+ * a parent asks where the marks went. Both come from the matrix the server
+ * already sends, so this needs no network and works on an archive.
+ */
+function StudentBreakdown({ data }: { data: Analytics }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const { matrix } = data;
+
+  return (
+    <div className="surface overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-4 py-3 pr-3">#</th>
+              <th className="py-3 pr-3">Student</th>
+              <th className="py-3 pr-3 text-right">Marks</th>
+              <th className="py-3 pr-3 text-right">Correct</th>
+              <th className="py-3 pr-3 text-right">Accuracy</th>
+              <th className="py-3 pr-3 text-right">Avg time</th>
+              <th className="py-3 pr-3 text-right">Streak</th>
+              <th className="py-3 pr-4 text-right">Flags</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {matrix.rows.map((row) => {
+              const p = data.players.find((x) => x.id === row.playerId);
+              const expanded = open === row.playerId;
+              return (
+                <Fragment key={row.playerId}>
+                  <tr
+                    className={
+                      'cursor-pointer transition hover:bg-white/[0.04] ' +
+                      (expanded ? 'bg-white/[0.04]' : '')
+                    }
+                    onClick={() => setOpen(expanded ? null : row.playerId)}
+                    aria-expanded={expanded}
+                  >
+                    <td className="px-4 py-2.5 pr-3 nums text-slate-500">{row.rank}</td>
+                    <td className="py-2.5 pr-3 font-medium">
+                      <span className="mr-2 inline-block w-3 text-slate-600" aria-hidden>
+                        {expanded ? '\u25BE' : '\u25B8'}
+                      </span>
+                      {row.nickname}
+                    </td>
+                    <td className="py-2.5 pr-3 text-right nums font-semibold text-brand-300">
+                      {row.score.toLocaleString()}
+                    </td>
+                    <td className="py-2.5 pr-3 text-right nums">
+                      {p?.correctCount ?? 0}/{p?.answeredCount ?? 0}
+                    </td>
+                    <td className="py-2.5 pr-3 text-right nums">{pct(p?.accuracy ?? 0)}</td>
+                    <td className="py-2.5 pr-3 text-right nums">{secs(p?.averageResponseMs ?? null)}</td>
+                    <td className="py-2.5 pr-3 text-right nums">{p?.bestStreak ?? 0}</td>
+                    <td className="py-2.5 pr-4 text-right">
+                      {p && p.strikes + p.tabSwitches > 0 ? (
+                        <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
+                          {p.tabSwitches} tab · {p.fullscreenExits} fs
+                        </span>
+                      ) : (
+                        <span className="text-slate-600">clean</span>
+                      )}
+                    </td>
+                  </tr>
+
+                  {expanded && (
+                    <tr>
+                      <td colSpan={8} className="bg-black/20 px-4 py-3">
+                        <table className="w-full text-[13px]">
+                          <thead className="text-left text-[11px] uppercase tracking-wide text-slate-600">
+                            <tr>
+                              <th className="py-1.5 pr-3">Q</th>
+                              <th className="py-1.5 pr-3">Question</th>
+                              <th className="py-1.5 pr-3">Their answer</th>
+                              <th className="py-1.5 pr-3">Correct?</th>
+                              <th className="py-1.5 pr-3 text-right">Marks</th>
+                              <th className="py-1.5 text-right">Time</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/[0.04]">
+                            {row.cells.map((cell, i) => {
+                              const q = matrix.questions[i];
+                              return (
+                                <tr key={q.questionId}>
+                                  <td className="py-1.5 pr-3 nums text-slate-500">{q.position + 1}</td>
+                                  <td className="max-w-[22rem] truncate py-1.5 pr-3 text-slate-300">{q.text}</td>
+                                  <td className="max-w-[16rem] truncate py-1.5 pr-3">
+                                    {cell.status === 'no_answer' ? (
+                                      <span className="italic text-slate-600">no answer</span>
+                                    ) : cell.status === 'skipped' ? (
+                                      <span className="italic text-slate-500">skipped</span>
+                                    ) : (
+                                      cell.response
+                                    )}
+                                  </td>
+                                  <td className="py-1.5 pr-3">
+                                    {cell.status === 'correct' ? (
+                                      <span className="font-semibold text-emerald-300">✓ Yes</span>
+                                    ) : cell.status === 'incorrect' ? (
+                                      <span className="font-semibold text-rose-300">✕ No</span>
+                                    ) : (
+                                      <span className="text-slate-600">—</span>
+                                    )}
+                                  </td>
+                                  <td className="py-1.5 pr-3 text-right nums">{cell.points ?? 0}</td>
+                                  <td className="py-1.5 text-right nums text-slate-500">
+                                    {cell.responseMs == null ? '\u2014' : (cell.responseMs / 1000).toFixed(1) + 's'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="border-t border-white/[0.05] px-4 py-2.5 text-[12px] text-slate-600">
+        Click a student to see every question they answered.
+      </p>
     </div>
   );
 }
