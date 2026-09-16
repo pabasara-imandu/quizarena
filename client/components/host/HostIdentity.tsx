@@ -37,11 +37,24 @@ export function HostIdentity({
   if (!identity) {
     // Google renders its own button into this slot. Sized so the header does
     // not jump when it appears a moment after the page.
-    return <div ref={slot} className="min-h-[32px] min-w-[120px]" aria-label="Sign in with Google" />;
+    //
+    // The key is load-bearing. This div and the signed-in div below are the
+    // same element type in the same position, so without distinct keys React
+    // reuses the DOM node and only replaces the children *it* created - and
+    // Google's iframe is not one of those. The result was the sign-in button
+    // sitting there next to the teacher's name after they had signed in.
+    return (
+      <div
+        key="anonymous"
+        ref={slot}
+        className="gsi-slot min-h-[32px] min-w-[120px]"
+        aria-label="Sign in with Google"
+      />
+    );
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div key="signed-in" className="flex items-center gap-2">
       {identity.picture ? (
         <img
           src={identity.picture}

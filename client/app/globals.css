@@ -138,6 +138,17 @@ body {
 
 /* ------------------------------------------------------------ result reveal */
 
+/* ------------------------------------------------------- google sign-in */
+
+/* Google's button is an iframe with a light colour scheme. This page is
+   `color-scheme: dark`, and when an iframe's scheme differs from its
+   embedder's the browser paints an opaque canvas behind it instead of leaving
+   it transparent - a white box around a black pill. Declaring the iframe
+   light, to match its own document, restores transparency. */
+.gsi-slot iframe {
+  color-scheme: light;
+}
+
 /* ------------------------------------------------------------ society logo */
 
 /* The travelling highlight. Masked to the crest by the component, so all this
