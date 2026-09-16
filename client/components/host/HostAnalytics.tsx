@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useMemo, useState } from 'react';
-import type { Analytics } from '@/lib/types';
+import { TYPED_TYPES, type Analytics } from '@/lib/types';
 import { ShortAnswerReview, type RegradeChange } from '@/components/host/ShortAnswerReview';
 import {
   buildGradebookCsv,
@@ -35,7 +35,7 @@ export function HostAnalytics({
     'questions' | 'students' | 'matrix' | 'integrity' | 'remark'
   >('questions');
 
-  const shortAnswerCount = data.perQuestion.filter((q) => q.type === 'short').length;
+  const shortAnswerCount = data.perQuestion.filter((q) => TYPED_TYPES.includes(q.type)).length;
 
   /**
    * Both exports are built here, in the browser, from the payload already on
@@ -218,11 +218,29 @@ export function HostAnalytics({
                   Accepted: {q.acceptedAnswers.join(' · ')}
                 </p>
               )}
+              {q.type === 'numeric' && q.answer != null && (
+                <p className="mt-2 text-xs text-emerald-300">
+                  Answer: {q.answer}
+                  {q.tolerance ? ' ± ' + q.tolerance : ''}
+                  {q.unit ? ' ' + q.unit : ''}
+                </p>
+              )}
+              {q.type === 'ordering' && q.correctOrder && (
+                <p className="mt-2 text-xs text-emerald-300">
+                  Correct order: {q.correctOrder.map((id) => q.options.find((o) => o.id === id)?.text ?? id).join(' → ')}
+                </p>
+              )}
+              {q.explanation && (
+                <p className="mt-2 rounded-lg bg-brand-500/[0.07] px-3 py-2 text-xs leading-relaxed text-slate-300">
+                  <b className="text-brand-300">Why: </b>
+                  {q.explanation}
+                </p>
+              )}
 
               <ul className="mt-3 space-y-1.5">
-                {/* Free-text questions have no options - show what was typed. */}
-                {(q.type === 'short'
-                  ? (q.textResponses ?? []).map((t) => ({
+                {/* Typed and ordered answers have no tiles - show what was given. */}
+                {(q.textResponses
+                  ? q.textResponses.map((t) => ({
                       id: t.key,
                       text: t.display,
                       correct: t.correct,
@@ -236,7 +254,7 @@ export function HostAnalytics({
                       <span
                         className={
                           'absolute inset-y-0 left-0 ' +
-                          (o.correct ? 'bg-emerald-500/25' : 'bg-rose-500/15')
+                          (q.neutral ? 'bg-brand-500/25' : o.correct ? 'bg-emerald-500/25' : 'bg-rose-500/15')
                         }
                         style={{ width: share + '%' }}
                         aria-hidden
@@ -525,6 +543,8 @@ function StudentBreakdown({ data }: { data: Analytics }) {
                                       <span className="font-semibold text-emerald-300">✓ Yes</span>
                                     ) : cell.status === 'incorrect' ? (
                                       <span className="font-semibold text-rose-300">✕ No</span>
+                                    ) : cell.status === 'answered' ? (
+                                      <span className="text-brand-300">voted</span>
                                     ) : (
                                       <span className="text-slate-600">—</span>
                                     )}

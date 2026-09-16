@@ -4,20 +4,35 @@ import type { Question } from '@/lib/types';
 
 const TYPE_LABEL: Record<Question['type'], string> = {
   multiple: 'MC',
+  multiselect: 'Multi',
   truefalse: 'T/F',
   short: 'Txt',
+  numeric: '123',
+  ordering: 'Order',
+  poll: 'Poll',
 };
 
 const TYPE_TONE: Record<Question['type'], string> = {
   multiple: 'bg-brand-500/15 text-brand-300',
+  multiselect: 'bg-brand-500/15 text-brand-300',
   truefalse: 'bg-sky-500/15 text-sky-300',
   short: 'bg-emerald-500/15 text-emerald-300',
+  numeric: 'bg-emerald-500/15 text-emerald-300',
+  ordering: 'bg-amber-500/15 text-amber-300',
+  poll: 'bg-slate-500/20 text-slate-300',
 };
 
+/** What "not finished" means for each type - the launch button is gated on this. */
 export function isIncomplete(q: Question) {
   if (!q.text.trim()) return true;
   if (q.type === 'short') return !(q.acceptedAnswers ?? []).some((a) => a.trim());
-  return q.options.filter((o) => o.text.trim() || o.image).length < 2;
+  if (q.type === 'numeric') return !Number.isFinite(q.answer);
+  const filled = q.options.filter((o) => o.text.trim() || o.image);
+  if (filled.length < 2) return true;
+  if (q.type === 'multiple' || q.type === 'truefalse' || q.type === 'multiselect') {
+    return !q.options.some((o) => o.correct);
+  }
+  return false; // ordering and polls need only their tiles
 }
 
 /**
@@ -41,7 +56,7 @@ export function QuestionList({
   onSelect: (index: number) => void;
   onMove: (index: number, delta: number) => void;
   onDelete: (index: number) => void;
-  onAdd: (type: Question['type']) => void;
+  onAdd: () => void;
 }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -162,24 +177,16 @@ export function QuestionList({
         })}
       </ol>
 
-      <div className="mt-3 grid grid-cols-3 gap-1.5">
-        <AddButton label="Choice" onClick={() => onAdd('multiple')} />
-        <AddButton label="True/False" onClick={() => onAdd('truefalse')} />
-        <AddButton label="Text" onClick={() => onAdd('short')} />
-      </div>
+      {/* One button. The question's type is chosen in the editor, where the
+          choice can be changed later - three type buttons here stopped
+          scaling the moment there were seven types. */}
+      <button
+        type="button"
+        onClick={onAdd}
+        className="mt-3 w-full rounded-xl border border-dashed border-white/[0.12] px-3 py-2.5 text-[13px] font-semibold text-slate-400 transition hover:border-brand-500/50 hover:bg-brand-500/10 hover:text-brand-200"
+      >
+        + Add a question
+      </button>
     </div>
-  );
-}
-
-function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-xl border border-dashed border-white/[0.12] px-2 py-2.5 text-[12px] font-semibold text-slate-400 transition hover:border-brand-500/50 hover:bg-brand-500/10 hover:text-brand-200"
-    >
-      <span className="mr-1">+</span>
-      {label}
-    </button>
   );
 }

@@ -19,8 +19,13 @@ import type {
 export interface RevealState {
   index: number;
   type: string;
+  neutral?: boolean;
   correctOptionIds: string[];
   acceptedAnswers: string[] | null;
+  answer?: number | null;
+  tolerance?: number | null;
+  unit?: string | null;
+  explanation?: string | null;
   distribution: Record<string, number>;
   textResponses: TextResponse[] | null;
   answeredTotal: number;
@@ -47,6 +52,8 @@ interface Props {
   reactionBurst: { reactions: { emoji: string; count: number }[]; at: number } | null;
   strikeLimit: number;
   autoAdvance?: boolean;
+  /** Off means Next goes straight from the answers to the next question. */
+  showLeaderboard?: boolean;
   onNext: () => void;
   onSkipTimer: () => void;
   onEnd: () => void;
@@ -79,6 +86,7 @@ export function HostLive({
   reactionBurst,
   strikeLimit,
   autoAdvance = false,
+  showLeaderboard = true,
   onNext,
   onSkipTimer,
   onEnd,
@@ -96,13 +104,28 @@ export function HostLive({
   const total = sync?.connectedCount ?? sync?.playerCount ?? 0;
   const flagged = (sync?.players ?? []).filter((p) => p.strikes > 0 || p.tabSwitches > 0);
   const paused = flagged.filter((p) => strikeLimit > 0 && p.strikes >= strikeLimit);
-  const isShort = question?.type === 'short';
+  const kind = question?.type;
+  // Typed and ordered answers have no tiles to light up; the host sees the
+  // answer key and a grouped list of what the class actually gave.
+  const keyed = kind === 'short' || kind === 'numeric' || kind === 'ordering';
+  const isPoll = kind === 'poll';
+  const label = (id: string) => question?.options.find((o) => o.id === id)?.text ?? id;
+  const answerKey =
+    kind === 'short'
+      ? (question?.acceptedAnswers ?? reveal?.acceptedAnswers ?? []).join('  ·  ')
+      : kind === 'numeric'
+        ? String(question?.answer ?? reveal?.answer ?? '') +
+          (question?.tolerance || reveal?.tolerance ? ' ± ' + (question?.tolerance ?? reveal?.tolerance) : '') +
+          (question?.unit || reveal?.unit ? ' ' + (question?.unit ?? reveal?.unit) : '')
+        : kind === 'ordering'
+          ? question?.options.map((o) => o.text).join('  →  ')
+          : '';
 
   const nextLabel = isLeadIn
     ? 'Start now'
     : phase === 'question'
       ? 'Close question'
-      : phase === 'reveal'
+      : phase === 'reveal' && showLeaderboard
         ? 'Show leaderboard'
         : reveal?.isLastQuestion
           ? 'Finish & see results'
@@ -139,8 +162,12 @@ export function HostLive({
                     <span className="chip-brand nums">
                       {(question?.index ?? 0) + 1} / {question?.total ?? totalQuestions}
                     </span>
-                    {question && <span className="chip-neutral nums">{question.points} pts</span>}
-                    {isShort && <span className="chip-good">Short answer</span>}
+                    {question && !isPoll && <span className="chip-neutral nums">{question.points} pts</span>}
+                    {kind === 'short' && <span className="chip-good">Short answer</span>}
+                    {kind === 'numeric' && <span className="chip-good">Number</span>}
+                    {kind === 'ordering' && <span className="chip-warn">Put in order</span>}
+                    {kind === 'multiselect' && <span className="chip-brand">Select all</span>}
+                    {isPoll && <span className="chip-neutral">Poll</span>}
                   </div>
                   <h2 className="mt-3 font-display text-2xl font-bold leading-tight sm:text-4xl">
                     {question?.text ?? 'Getting ready…'}
@@ -174,24 +201,28 @@ export function HostLive({
           </div>
         </div>
 
-        {/* Choice questions: the tiles, with live counts once revealed. */}
-        {!isLeadIn && question && !isShort && (
+        {/* Tile questions: the tiles, with live counts once revealed. A poll
+            reveal shows counts and dims nothing - there is no wrong answer. */}
+        {!isLeadIn && question && !keyed && (
           <AnswerGrid
             options={question.options}
             correctIds={showingReveal ? (reveal?.correctOptionIds ?? null) : null}
+            neutral={isPoll}
             counts={showingReveal ? (reveal?.distribution ?? null) : null}
             totalAnswers={showingReveal ? reveal?.answeredTotal : undefined}
             disabled
           />
         )}
 
-        {/* Short answers: the accepted key, plus what the class actually typed. */}
-        {!isLeadIn && isShort && (
+        {/* Keyed questions: the answer key, plus what the class actually gave. */}
+        {!isLeadIn && keyed && (
           <div className="surface space-y-4 p-5">
             <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/[0.08] px-4 py-3">
-              <p className="eyebrow text-emerald-400/70">Accepted answers</p>
+              <p className="eyebrow text-emerald-400/70">
+                {kind === 'short' ? 'Accepted answers' : kind === 'numeric' ? 'Answer' : 'Correct order'}
+              </p>
               <p className="mt-1 font-display text-lg font-semibold text-emerald-100">
-                {(question?.acceptedAnswers ?? reveal?.acceptedAnswers ?? []).join('  ·  ') || '—'}
+                {answerKey || '—'}
               </p>
             </div>
             {showingReveal && (
@@ -203,13 +234,28 @@ export function HostLive({
           </div>
         )}
 
+        {/* The teacher's "why", surfaced with the answer so it can be read
+            aloud while the class is still looking at the reveal. */}
+        {showingReveal && (reveal?.explanation || question?.explanation) && (
+          <div className="rounded-2xl border border-brand-400/20 bg-brand-500/[0.07] px-5 py-4">
+            <p className="eyebrow text-brand-300/80">Why</p>
+            <p className="mt-1 text-[15px] leading-relaxed text-slate-200">
+              {reveal?.explanation ?? question?.explanation}
+            </p>
+          </div>
+        )}
+
         {showingReveal && reveal && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat
-              label="Correct"
-              value={Math.round(reveal.accuracy * 100) + '%'}
-              tone={reveal.accuracy < 0.4 ? 'bad' : reveal.accuracy > 0.75 ? 'good' : 'mid'}
-            />
+            {isPoll ? (
+              <Stat label="Votes" value={String(reveal.answeredTotal)} />
+            ) : (
+              <Stat
+                label="Correct"
+                value={Math.round(reveal.accuracy * 100) + '%'}
+                tone={reveal.accuracy < 0.4 ? 'bad' : reveal.accuracy > 0.75 ? 'good' : 'mid'}
+              />
+            )}
             <Stat label="Answered" value={reveal.answeredTotal + '/' + reveal.playerCount} />
             <Stat label="Skipped" value={String(reveal.skippedTotal ?? 0)} />
             <Stat

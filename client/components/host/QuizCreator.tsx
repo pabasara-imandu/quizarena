@@ -178,10 +178,13 @@ export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdi
     setSelected(target);
   };
 
-  const add = (type: Question['type']) => {
-    setQuestions((qs) => [...qs, blank(type)]);
+  const add = () => {
+    setQuestions((qs) => [...qs, blank('multiple')]);
     setSelected(questions.length);
   };
+
+  const replaceQuestion = (index: number, next: Question) =>
+    setQuestions((qs) => qs.map((q, i) => (i === index ? next : q)));
 
   const remove = (index: number) => {
     if (questions.length === 1) return;
@@ -310,6 +313,7 @@ export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdi
               index={selected}
               total={questions.length}
               onPatch={(patch) => patchQuestion(selected, patch)}
+              onReplace={(next) => replaceQuestion(selected, next)}
             />
           )}
         </section>

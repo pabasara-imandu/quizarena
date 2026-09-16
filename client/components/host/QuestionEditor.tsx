@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { QuestionMedia } from '@/components/ui/QuestionMedia';
 import { ImagePicker } from '@/components/ui/ImagePicker';
-import type { Option, Question } from '@/lib/types';
+import { QUESTION_TYPE_LABEL, type Option, type Question, type QuestionType } from '@/lib/types';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -17,75 +17,143 @@ const TILE_TONE = [
 ];
 const TILE_GLYPH = ['▲', '◆', '●', '■', '★', '⬟'];
 
-const POINT_STEPS = [500, 800, 1000, 1200, 1500, 2000];
-const TIME_STEPS = [10, 20, 30, 45, 60, 120];
+const TIME_CHOICES = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300];
+const POINT_CHOICES = [0, 500, 800, 1000, 1200, 1500, 2000, 3000, 5000];
+
+/** The choices, plus the current value if it is not one of them (imports can carry any). */
+const including = (choices: number[], value: number) =>
+  choices.includes(value) ? choices : [...choices, value].sort((a, b) => a - b);
+
+/** One line of guidance per type, shown under the answers heading. */
+const TYPE_HINT: Record<QuestionType, string> = {
+  multiple: 'Tap the circle to mark the one right answer.',
+  multiselect: 'Tick every right answer. Students must pick exactly those.',
+  truefalse: 'Tap the circle to mark which is true.',
+  short: 'Any one of these spellings counts as correct.',
+  numeric: 'Correct if their number is within the tolerance.',
+  ordering: 'Write these in the correct order. Students see them shuffled.',
+  poll: 'No right answer. Nobody scores; everyone sees the result.',
+};
+
+const blankOption = (): Option => ({ id: uid(), text: '', correct: false });
 
 /**
- * Presets, plus the current value if it is not one of them.
+ * Change a question's type in place.
  *
- * An imported spreadsheet can carry any time limit the server allows, and a
- * value with no matching pill would leave the whole row looking unselected.
- * Splicing it in keeps the control honest about what is actually set.
+ * Keeps everything that survives the change - the text, image, explanation,
+ * time and points - and gives the type-specific part a sensible shape, so a
+ * teacher who picked the wrong type does not lose the question they wrote.
  */
-function stepsIncluding(steps: number[], value: number) {
-  return steps.includes(value) ? steps : [...steps, value].sort((a, b) => a - b);
+export function convertQuestion(q: Question, type: QuestionType): Question {
+  const base = {
+    id: q.id,
+    text: q.text,
+    image: q.image ?? null,
+    explanation: q.explanation ?? null,
+    timeLimitSec: q.timeLimitSec,
+    points: q.points,
+  };
+  const tiles = q.options.length >= 2 ? q.options : [blankOption(), blankOption(), blankOption(), blankOption()];
+
+  switch (type) {
+    case 'truefalse':
+      return {
+        ...base,
+        type,
+        options: [
+          { id: 'true', text: 'True', correct: true },
+          { id: 'false', text: 'False', correct: false },
+        ],
+      };
+    case 'short':
+      return { ...base, type, options: [], acceptedAnswers: q.acceptedAnswers?.length ? q.acceptedAnswers : [''], caseSensitive: !!q.caseSensitive };
+    case 'numeric':
+      return { ...base, type, options: [], answer: q.answer ?? 0, tolerance: q.tolerance ?? 0, unit: q.unit ?? null };
+    case 'multiple': {
+      const firstCorrect = tiles.findIndex((o) => o.correct);
+      return {
+        ...base,
+        type,
+        options: tiles.map((o, i) => ({ ...o, correct: i === (firstCorrect < 0 ? 0 : firstCorrect) })),
+      };
+    }
+    case 'multiselect':
+      return { ...base, type, options: tiles.map((o) => ({ ...o, correct: !!o.correct })) };
+    case 'ordering':
+    case 'poll':
+      return { ...base, type, options: tiles.map((o) => ({ ...o, correct: false })) };
+  }
 }
 
 /**
  * Editor for a single question.
  *
- * Everything the old inline card had is still here, but the rarely-used parts
- * (images, case sensitivity) are folded behind a disclosure so the common path
- * - write a question, write four answers, mark one correct - is the only thing
- * on screen by default.
+ * One thing on screen by default: the prompt and its answers. Type is a select
+ * in the header so a question can be re-shaped without re-typing it; time and
+ * points are two small pickers rather than twelve pills; images and the
+ * explanation live behind quiet links until wanted.
  */
 export function QuestionEditor({
   question,
   index,
   total,
   onPatch,
+  onReplace,
 }: {
   question: Question;
   index: number;
   total: number;
   onPatch: (patch: Partial<Question>) => void;
+  /** Whole-question replacement, for a type change. */
+  onReplace: (next: Question) => void;
 }) {
   const [showMedia, setShowMedia] = useState(!!question.image);
-
-  const patchOption = (oi: number, patch: Partial<Option>) =>
-    onPatch({ options: question.options.map((o, j) => (j === oi ? { ...o, ...patch } : o)) });
-
-  // Exactly one correct answer keeps scoring unambiguous, so marking one
-  // clears the others rather than toggling freely.
-  const setCorrect = (oi: number) =>
-    onPatch({ options: question.options.map((o, j) => ({ ...o, correct: j === oi })) });
+  const [showExplanation, setShowExplanation] = useState(!!question.explanation);
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-center gap-3">
+    <div className="space-y-5">
+      {/* ------------------------------------------------------------ header */}
+      <header className="flex flex-wrap items-center gap-3">
         <span className="chip-brand nums">
           Question {index + 1} of {total}
         </span>
-        <span className="text-sm text-slate-500">
-          {question.type === 'multiple'
-            ? 'Multiple choice'
-            : question.type === 'truefalse'
-              ? 'True or false'
-              : 'Short answer'}
-        </span>
+        <label className="ml-auto flex items-center gap-2 text-[13px] text-slate-500">
+          <span className="hidden sm:inline">Type</span>
+          <select
+            className="select-pill"
+            value={question.type}
+            aria-label="Question type"
+            onChange={(e) => onReplace(convertQuestion(question, e.target.value as QuestionType))}
+          >
+            {(Object.keys(QUESTION_TYPE_LABEL) as QuestionType[]).map((t) => (
+              <option key={t} value={t}>
+                {QUESTION_TYPE_LABEL[t]}
+              </option>
+            ))}
+          </select>
+        </label>
       </header>
 
       {/* ------------------------------------------------------------ prompt */}
       <div>
         <textarea
-          className="field min-h-[96px] resize-y font-display text-xl leading-snug"
-          placeholder="What do you want to ask?"
+          className="field min-h-[92px] resize-y font-display text-xl leading-snug"
+          placeholder={question.type === 'poll' ? 'What do you want to ask the class?' : 'What do you want to ask?'}
           maxLength={500}
           value={question.text}
           onChange={(e) => onPatch({ text: e.target.value })}
         />
 
-        {showMedia || question.image ? (
+        <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+          {!showMedia && !question.image && (
+            <QuietLink onClick={() => setShowMedia(true)}>+ Add an image</QuietLink>
+          )}
+          {!showExplanation && !question.explanation && (
+            <QuietLink onClick={() => setShowExplanation(true)}>+ Add an explanation</QuietLink>
+          )}
+        </div>
+
+        {(showMedia || question.image) && (
           <div className="mt-3 animate-rise">
             <ImagePicker
               label="Image"
@@ -97,211 +165,252 @@ export function QuestionEditor({
             />
             <QuestionMedia src={question.image} className="mt-3" maxHeight="11rem" />
           </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setShowMedia(true)}
-            className="mt-2 text-[13px] font-medium text-slate-500 transition hover:text-brand-300"
-          >
-            + Add an image
-          </button>
+        )}
+
+        {(showExplanation || question.explanation) && (
+          <div className="mt-3 animate-rise">
+            <div className="mb-1.5 flex items-baseline justify-between">
+              <span className="field-label mb-0">Explanation</span>
+              <span className="text-[12px] text-slate-600">shown to everyone with the answer</span>
+            </div>
+            <textarea
+              className="field min-h-[64px] resize-y text-[15px]"
+              placeholder="Why is that the answer? One or two sentences, as you would say it to the class."
+              maxLength={600}
+              value={question.explanation ?? ''}
+              onChange={(e) => onPatch({ explanation: e.target.value || null })}
+              onBlur={(e) => {
+                if (!e.target.value.trim()) {
+                  onPatch({ explanation: null });
+                  setShowExplanation(false);
+                }
+              }}
+            />
+          </div>
         )}
       </div>
 
-      {/* ------------------------------------------------------- time/points */}
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div>
-          <div className="mb-2 flex items-baseline justify-between">
-            <span className="field-label mb-0">Time limit</span>
-            <span className="font-display text-lg font-bold text-brand-300 nums">
-              {question.timeLimitSec}s
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {stepsIncluding(TIME_STEPS, question.timeLimitSec).map((t) => (
-              <PillChoice
-                key={t}
-                active={question.timeLimitSec === t}
-                onClick={() => onPatch({ timeLimitSec: t })}
-              >
-                {t}s
-              </PillChoice>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <div className="mb-2 flex items-baseline justify-between">
-            <span className="field-label mb-0">Points</span>
-            <span className="font-display text-lg font-bold text-brand-300 nums">
-              {question.points}
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {stepsIncluding(POINT_STEPS, question.points).map((p) => (
-              <PillChoice
-                key={p}
-                active={question.points === p}
-                onClick={() => onPatch({ points: p })}
-              >
-                {p}
-              </PillChoice>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="divider" />
-
       {/* ----------------------------------------------------------- answers */}
-      {question.type === 'short' ? (
-        <ShortAnswerFields question={question} onPatch={onPatch} />
-      ) : (
-        <ChoiceFields
-          question={question}
-          onPatchOption={patchOption}
-          onSetCorrect={setCorrect}
-          onPatch={onPatch}
-        />
-      )}
+      <section>
+        <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="field-label mb-0">
+            {question.type === 'short'
+              ? 'Accepted answers'
+              : question.type === 'numeric'
+                ? 'Answer'
+                : question.type === 'ordering'
+                  ? 'Correct order'
+                  : question.type === 'poll'
+                    ? 'Choices'
+                    : 'Answers'}
+          </span>
+
+          <div className="ml-auto flex items-center gap-2">
+            <label className="flex items-center gap-1.5 text-[12px] text-slate-500">
+              Time
+              <select
+                className="select-pill"
+                aria-label="Time limit"
+                value={question.timeLimitSec}
+                onChange={(e) => onPatch({ timeLimitSec: Number(e.target.value) })}
+              >
+                {including(TIME_CHOICES, question.timeLimitSec).map((t) => (
+                  <option key={t} value={t}>
+                    {t}s
+                  </option>
+                ))}
+              </select>
+            </label>
+            {question.type !== 'poll' && (
+              <label className="flex items-center gap-1.5 text-[12px] text-slate-500">
+                Points
+                <select
+                  className="select-pill"
+                  aria-label="Points"
+                  value={question.points}
+                  onChange={(e) => onPatch({ points: Number(e.target.value) })}
+                >
+                  {including(POINT_CHOICES, question.points).map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+        </div>
+        <p className="mb-3 text-[12.5px] text-slate-600">{TYPE_HINT[question.type]}</p>
+
+        {question.type === 'short' && <ShortAnswerFields question={question} onPatch={onPatch} />}
+        {question.type === 'numeric' && <NumericFields question={question} onPatch={onPatch} />}
+        {(question.type === 'multiple' ||
+          question.type === 'multiselect' ||
+          question.type === 'truefalse' ||
+          question.type === 'ordering' ||
+          question.type === 'poll') && <TileFields question={question} onPatch={onPatch} />}
+      </section>
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
 
-function ChoiceFields({
+function TileFields({
   question,
-  onPatchOption,
-  onSetCorrect,
   onPatch,
 }: {
   question: Question;
-  onPatchOption: (oi: number, patch: Partial<Option>) => void;
-  onSetCorrect: (oi: number) => void;
   onPatch: (patch: Partial<Question>) => void;
 }) {
   const [imageFor, setImageFor] = useState<string | null>(null);
-  const locked = question.type === 'truefalse';
+  const { type, options } = question;
+  const locked = type === 'truefalse';
+  const markerKind =
+    type === 'multiple' || type === 'truefalse'
+      ? 'radio'
+      : type === 'multiselect'
+        ? 'check'
+        : type === 'ordering'
+          ? 'order'
+          : 'none';
+
+  const patchOption = (oi: number, patch: Partial<Option>) =>
+    onPatch({ options: options.map((o, j) => (j === oi ? { ...o, ...patch } : o)) });
+
+  const mark = (oi: number) => {
+    if (markerKind === 'radio') {
+      onPatch({ options: options.map((o, j) => ({ ...o, correct: j === oi })) });
+    } else if (markerKind === 'check') {
+      patchOption(oi, { correct: !options[oi].correct });
+    }
+  };
+
+  const move = (oi: number, delta: number) => {
+    const target = oi + delta;
+    if (target < 0 || target >= options.length) return;
+    const next = [...options];
+    [next[oi], next[target]] = [next[target], next[oi]];
+    onPatch({ options: next });
+  };
 
   // `min-w-0` on the fieldset defeats the UA stylesheet's
   // `min-width: min-content`, which otherwise stops the answer list shrinking
   // on a phone and pushes the whole row off the right edge of the screen.
   return (
     <fieldset className="min-w-0">
-      <legend className="field-label mb-3">
-        Answers
-        <span className="ml-2 font-normal text-slate-600">tap the circle to mark the right one</span>
-      </legend>
-
-      <div className="space-y-2">
-        {question.options.map((option, oi) => {
+      <ul className="divide-y divide-white/[0.05] rounded-xl border border-white/[0.06]">
+        {options.map((option, oi) => {
           const showImageField = imageFor === option.id || !!option.image;
-
           return (
-            <div key={option.id}>
+            <li key={option.id} className="group">
               <div
                 className={
-                  'flex min-w-0 items-center gap-2.5 rounded-xl border p-2 transition ' +
-                  (option.correct
-                    ? 'border-emerald-500/40 bg-emerald-500/[0.07]'
-                    : 'border-white/[0.06] bg-white/[0.02]')
+                  'flex min-w-0 items-center gap-2.5 px-2.5 py-1.5 transition ' +
+                  (option.correct && markerKind !== 'none' ? 'bg-emerald-500/[0.06]' : '')
                 }
               >
                 <span
                   className={
-                    'grid h-9 w-9 shrink-0 place-items-center rounded-lg text-sm text-white ' +
+                    'grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[13px] text-white ' +
                     TILE_TONE[oi % TILE_TONE.length]
                   }
                   aria-hidden
                 >
-                  {TILE_GLYPH[oi % TILE_GLYPH.length]}
+                  {markerKind === 'order' ? oi + 1 : TILE_GLYPH[oi % TILE_GLYPH.length]}
                 </span>
 
-                <button
-                  type="button"
-                  onClick={() => onSetCorrect(oi)}
-                  aria-label={'Mark answer ' + (oi + 1) + ' as correct'}
-                  aria-pressed={!!option.correct}
-                  className={
-                    'grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 text-xs transition ' +
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 ' +
-                    (option.correct
-                      ? 'border-emerald-400 bg-emerald-500 text-white'
-                      : 'border-white/20 text-transparent hover:border-emerald-400/60')
-                  }
-                >
-                  ✓
-                </button>
+                {markerKind !== 'none' && markerKind !== 'order' && (
+                  <button
+                    type="button"
+                    onClick={() => mark(oi)}
+                    aria-label={'Mark answer ' + (oi + 1) + ' as correct'}
+                    aria-pressed={!!option.correct}
+                    className={
+                      'grid h-5 w-5 shrink-0 place-items-center border-2 text-[10px] transition ' +
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 ' +
+                      (markerKind === 'check' ? 'rounded-md ' : 'rounded-full ') +
+                      (option.correct
+                        ? 'border-emerald-400 bg-emerald-500 text-white'
+                        : 'border-white/20 text-transparent hover:border-emerald-400/60')
+                    }
+                  >
+                    ✓
+                  </button>
+                )}
 
                 <input
                   className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-[15px] text-slate-100 placeholder:text-slate-600 focus:outline-none"
-                  placeholder={'Answer ' + (oi + 1)}
+                  placeholder={
+                    markerKind === 'order'
+                      ? 'Step ' + (oi + 1)
+                      : type === 'poll'
+                        ? 'Choice ' + (oi + 1)
+                        : 'Answer ' + (oi + 1)
+                  }
                   maxLength={200}
                   readOnly={locked}
                   value={option.text}
-                  onChange={(e) => onPatchOption(oi, { text: e.target.value })}
+                  onChange={(e) => patchOption(oi, { text: e.target.value })}
                 />
 
+                {/* Quiet until the row is hovered or focused - but only on
+                    devices that can hover. A touchscreen has no hover state,
+                    so there they are simply always visible. */}
                 {!locked && (
-                  <>
-                    <button
-                      type="button"
+                  <span className="flex shrink-0 items-center gap-0.5 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
+                    {markerKind === 'order' && (
+                      <>
+                        <IconButton label={'Move step ' + (oi + 1) + ' up'} onClick={() => move(oi, -1)} disabled={oi === 0}>
+                          ▲
+                        </IconButton>
+                        <IconButton label={'Move step ' + (oi + 1) + ' down'} onClick={() => move(oi, 1)} disabled={oi === options.length - 1}>
+                          ▼
+                        </IconButton>
+                      </>
+                    )}
+                    <IconButton
+                      label={'Toggle image for answer ' + (oi + 1)}
                       onClick={() => setImageFor(showImageField ? null : option.id)}
-                      aria-label={'Toggle image for answer ' + (oi + 1)}
-                      className={
-                        'shrink-0 rounded-lg px-2 py-1 text-xs transition ' +
-                        (option.image
-                          ? 'text-brand-300'
-                          : 'text-slate-600 hover:bg-white/5 hover:text-slate-300')
-                      }
+                      active={!!option.image}
                     >
                       ▤
-                    </button>
-                    {question.options.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onPatch({ options: question.options.filter((_, j) => j !== oi) })
-                        }
-                        aria-label={'Remove answer ' + (oi + 1)}
-                        className="shrink-0 rounded-lg px-2 py-1 text-xs text-slate-600 transition hover:bg-rose-500/10 hover:text-rose-300"
+                    </IconButton>
+                    {options.length > 2 && (
+                      <IconButton
+                        label={'Remove answer ' + (oi + 1)}
+                        onClick={() => onPatch({ options: options.filter((_, j) => j !== oi) })}
+                        danger
                       >
                         ✕
-                      </button>
+                      </IconButton>
                     )}
-                  </>
+                  </span>
                 )}
               </div>
 
               {showImageField && !locked && (
-                <div className="mt-1.5 animate-rise pl-12">
+                <div className="animate-rise px-2.5 pb-2.5 pl-[3.25rem]">
                   <ImagePicker
                     label="Answer image"
                     compact
                     value={option.image}
                     onChange={(url) => {
-                      onPatchOption(oi, { image: url });
+                      patchOption(oi, { image: url });
                       if (!url) setImageFor(null);
                     }}
                   />
                 </div>
               )}
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
-      {question.type === 'multiple' && question.options.length < 6 && (
-        <button
-          type="button"
-          className="mt-2.5 text-[13px] font-medium text-slate-500 transition hover:text-brand-300"
-          onClick={() =>
-            onPatch({ options: [...question.options, { id: uid(), text: '', correct: false }] })
-          }
-        >
-          + Add another answer
-        </button>
+      {!locked && options.length < 6 && (
+        <QuietLink className="mt-2.5" onClick={() => onPatch({ options: [...options, blankOption()] })}>
+          + Add another {markerKind === 'order' ? 'step' : type === 'poll' ? 'choice' : 'answer'}
+        </QuietLink>
       )}
     </fieldset>
   );
@@ -318,18 +427,10 @@ function ShortAnswerFields({
 
   return (
     <fieldset className="min-w-0">
-      <legend className="field-label mb-3">
-        Accepted answers
-        <span className="ml-2 font-normal text-slate-600">any one of these counts as correct</span>
-      </legend>
-
-      <div className="space-y-2">
+      <ul className="divide-y divide-white/[0.05] rounded-xl border border-white/[0.06]">
         {accepted.map((answer, i) => (
-          <div
-            key={i}
-            className="flex min-w-0 items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2"
-          >
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-xs font-bold text-emerald-300 nums">
+          <li key={i} className="group flex min-w-0 items-center gap-2.5 px-2.5 py-1.5">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-xs font-bold text-emerald-300 nums">
               {i + 1}
             </span>
             <input
@@ -342,28 +443,25 @@ function ShortAnswerFields({
               }
             />
             {accepted.length > 1 && (
-              <button
-                type="button"
-                onClick={() => onPatch({ acceptedAnswers: accepted.filter((_, j) => j !== i) })}
-                aria-label={'Remove accepted answer ' + (i + 1)}
-                className="shrink-0 rounded-lg px-2 py-1 text-xs text-slate-600 transition hover:bg-rose-500/10 hover:text-rose-300"
-              >
-                ✕
-              </button>
+              <span className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
+                <IconButton
+                  label={'Remove accepted answer ' + (i + 1)}
+                  onClick={() => onPatch({ acceptedAnswers: accepted.filter((_, j) => j !== i) })}
+                  danger
+                >
+                  ✕
+                </IconButton>
+              </span>
             )}
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
 
-      <div className="mt-3 flex flex-wrap items-center gap-4">
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-2">
         {accepted.length < 12 && (
-          <button
-            type="button"
-            className="text-[13px] font-medium text-slate-500 transition hover:text-brand-300"
-            onClick={() => onPatch({ acceptedAnswers: [...accepted, ''] })}
-          >
-            + Add an alternative
-          </button>
+          <QuietLink onClick={() => onPatch({ acceptedAnswers: [...accepted, ''] })}>
+            + Add an alternative spelling
+          </QuietLink>
         )}
         <label className="flex cursor-pointer items-center gap-2 text-[13px] text-slate-400">
           <input
@@ -375,35 +473,112 @@ function ShortAnswerFields({
           Match capitals exactly
         </label>
       </div>
-
-      <p className="field-hint">
-        Extra spaces are always forgiven. Add the spellings you would accept in a book — students
-        lose marks to typos you did not think of, not the ones you did.
-      </p>
     </fieldset>
   );
 }
 
-function PillChoice({
-  active,
+function NumericFields({
+  question,
+  onPatch,
+}: {
+  question: Question;
+  onPatch: (patch: Partial<Question>) => void;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-[1fr_1fr_8rem]">
+      <label className="block">
+        <span className="field-label">Correct value</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          step="any"
+          className="field nums"
+          placeholder="e.g. 9.81"
+          value={question.answer ?? ''}
+          onChange={(e) => onPatch({ answer: e.target.value === '' ? undefined : Number(e.target.value) })}
+        />
+      </label>
+      <label className="block">
+        <span className="field-label">Tolerance (±)</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          step="any"
+          min={0}
+          className="field nums"
+          placeholder="0"
+          value={question.tolerance ?? 0}
+          onChange={(e) => onPatch({ tolerance: Math.max(0, Number(e.target.value) || 0) })}
+        />
+      </label>
+      <label className="block">
+        <span className="field-label">Unit</span>
+        <input
+          className="field"
+          placeholder="m/s², kg…"
+          maxLength={20}
+          value={question.unit ?? ''}
+          onChange={(e) => onPatch({ unit: e.target.value || null })}
+        />
+      </label>
+      <p className="field-hint sm:col-span-3">
+        Students type a number. A decimal comma is fine; the unit is shown to them, not typed.
+      </p>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function QuietLink({
   onClick,
   children,
+  className = '',
 }: {
-  active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-pressed={active}
+      className={'block text-[13px] font-medium text-slate-500 transition hover:text-brand-300 ' + className}
+    >
+      {children}
+    </button>
+  );
+}
+
+function IconButton({
+  label,
+  onClick,
+  children,
+  disabled,
+  active,
+  danger,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  disabled?: boolean;
+  active?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
       className={
-        'rounded-lg px-2.5 py-1.5 text-[13px] font-semibold transition nums ' +
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 ' +
+        'grid h-7 w-7 place-items-center rounded-lg text-xs transition disabled:opacity-20 ' +
         (active
-          ? 'bg-brand-500 text-white'
-          : 'bg-white/[0.05] text-slate-400 hover:bg-white/[0.1] hover:text-slate-100')
+          ? 'text-brand-300'
+          : danger
+            ? 'text-slate-600 hover:bg-rose-500/10 hover:text-rose-300'
+            : 'text-slate-600 hover:bg-white/5 hover:text-slate-300')
       }
     >
       {children}

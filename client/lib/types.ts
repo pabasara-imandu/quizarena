@@ -1,4 +1,24 @@
-export type QuestionType = 'multiple' | 'truefalse' | 'short';
+export type QuestionType =
+  | 'multiple'
+  | 'multiselect'
+  | 'truefalse'
+  | 'short'
+  | 'numeric'
+  | 'ordering'
+  | 'poll';
+
+/** Types whose answer is typed rather than tapped - the ones a host can re-mark. */
+export const TYPED_TYPES: QuestionType[] = ['short', 'numeric'];
+
+export const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
+  multiple: 'Multiple choice',
+  multiselect: 'Select all that apply',
+  truefalse: 'True or false',
+  short: 'Short answer',
+  numeric: 'Number',
+  ordering: 'Put in order',
+  poll: 'Poll',
+};
 
 export interface Option {
   id: string;
@@ -16,6 +36,12 @@ export interface Question {
   /** Short-answer only. Never sent to students. */
   acceptedAnswers?: string[];
   caseSensitive?: boolean;
+  /** Numeric only. Never sent to students. */
+  answer?: number;
+  tolerance?: number;
+  unit?: string | null;
+  /** Shown to everyone with the answer, after the reveal. */
+  explanation?: string | null;
   timeLimitSec: number;
   points: number;
 }
@@ -54,6 +80,12 @@ export interface LiveQuestion {
   options: Option[];
   acceptedAnswers?: string[];
   caseSensitive?: boolean;
+  /** Numeric: shown next to the input so a student knows what to type. */
+  unit?: string | null;
+  /** Host view only. */
+  answer?: number;
+  tolerance?: number;
+  explanation?: string | null;
 }
 
 export interface LeaderboardRow {
@@ -120,7 +152,11 @@ export interface PlayerResult {
   answered: boolean;
   skipped: boolean;
   correct: boolean;
+  /** A poll answer: neither right nor wrong, and no effect on the streak. */
+  neutral?: boolean;
   chosenOptionId?: string | null;
+  chosenOptionIds?: string[] | null;
+  submittedOrder?: string[] | null;
   submittedText?: string | null;
   pointsEarned: number;
   basePoints?: number;
@@ -147,6 +183,12 @@ export interface QuestionAnalytics {
   timeLimitSec: number;
   options: (Option & { count: number })[];
   acceptedAnswers: string[] | null;
+  answer?: number | null;
+  tolerance?: number | null;
+  unit?: string | null;
+  explanation?: string | null;
+  neutral?: boolean;
+  correctOrder?: string[] | null;
   textResponses: TextResponse[] | null;
   answered: number;
   skipped: number;
@@ -157,7 +199,8 @@ export interface QuestionAnalytics {
 }
 
 export interface MatrixCell {
-  status: 'correct' | 'incorrect' | 'skipped' | 'no_answer';
+  /** `answered` is a poll response: counted, never marked. */
+  status: 'correct' | 'incorrect' | 'skipped' | 'no_answer' | 'answered';
   points: number;
   responseMs: number | null;
   response: string | null;

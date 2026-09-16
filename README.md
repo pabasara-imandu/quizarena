@@ -26,7 +26,7 @@ quiz/
 │   │   │   ├── answerMatch.js       Short-answer normalisation, matching, grouping
 │   │   │   ├── quizSchema.js        Input validation (types, image URLs, accepted answers)
 │   │   │   ├── importQuiz.js        Spreadsheet (.xlsx/.csv) -> quiz
-│   │   │   ├── generateQuiz.js      Topic -> quiz (Claude, with an offline scaffold fallback)
+│   │   │   ├── generateQuiz.js      Topic -> quiz (Gemini, with an offline scaffold fallback)
 │   │   │   ├── exportCsv.js         Deep gradebook CSV builder
 │   │   │   └── sampleQuiz.js        Demo content (all three question types)
 │   │   └── utils/                   rng (seeded shuffle), pin, rateLimit (+ sanitisers)
@@ -114,9 +114,20 @@ latency percentiles.
 
 | Type | Student sees | Graded by |
 |---|---|---|
-| `multiple` | 2–6 colour/shape tiles, order scrambled per student | option id |
+| `multiple` | 2–6 colour/shape tiles, order scrambled per student | one option id |
+| `multiselect` | The same tiles, tick as many as apply, then submit | **all or nothing** — exactly the right set, no extras, nothing missing |
 | `truefalse` | Two tiles, never scrambled | option id |
 | `short` | A text input | string match against a list of accepted answers |
+| `numeric` | A number input with the unit shown beside it | `|value − answer| ≤ tolerance`; a decimal comma is accepted |
+| `ordering` | Tiles to tap into sequence — **always** scrambled, whatever the room setting, or the display would be the answer | exact sequence |
+| `poll` | Tiles with no right answer; the class distribution is shown to everyone at the reveal | not graded — scores nothing, streaks untouched, excluded from accuracy |
+
+Every type can carry an **explanation** — the teacher's "why" — shown to everyone with the answer.
+The moment after a reveal is when a student is most receptive, so this is where a quiz becomes
+teaching. Explanations are never sent before the reveal.
+
+Any question's type can be changed in place from the editor; text, image, explanation, time and
+points survive the change. Short and numeric answers can be **re-marked** by the host after the quiz.
 
 **Short-answer matching** normalises Unicode (NFKC), collapses runs of whitespace, and lowercases
 unless the question is marked case-sensitive. `"  tOkYo "` matches `Tokyo`. A question can accept
@@ -298,9 +309,11 @@ Unusable rows are skipped with a per-row reason rather than failing the whole fi
 is run through the same validator the live editor uses. `GET /api/import/template.csv` returns a
 filled-in template.
 
-**Topic generation** — `POST /api/generate` with `{ topic, count, difficulty, gradeLevel }`. With
-`ANTHROPIC_API_KEY` set it calls Claude (`claude-opus-5`) with a JSON schema constraining the output
-shape, so the result is guaranteed to parse. Without a key it returns a **deterministic scaffold**:
+**Topic generation** — `POST /api/generate` with `{ topic, count, difficulty, gradeLevel, language }`.
+`language` is `en`, `si` or `ta`: with `GEMINI_API_KEY` set it calls Gemini with a response schema
+constraining the output shape, so the result is guaranteed to parse, and writes the whole quiz —
+questions, options, accepted spellings and explanations — in natural Sinhala or Tamil when asked.
+Without a key it returns a **deterministic scaffold**:
 real, editable question rows with the topic filled in and the answers left obviously blank.
 
 > The scaffold never invents plausible-looking answers, and that is deliberate. A teacher

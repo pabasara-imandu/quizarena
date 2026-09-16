@@ -16,6 +16,8 @@ import helmet from 'helmet';
 import { api } from '../src/routes/api.js';
 import { generatePin, serverIndexForPin } from '../src/utils/pin.js';
 import { roomStore } from '../src/state/roomStore.js';
+import { parseQuizWorkbook } from '../src/game/importQuiz.js';
+import { sanitizeText } from '../src/utils/rateLimit.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -453,6 +455,238 @@ test('matrix export has one column group per question and one row per student', 
   assert.ok(csv.includes('Answer breakdown'));
   assert.ok(csv.includes('Ada'));
 });
+
+console.log('\nSinhala and Tamil survive the pipeline');
+
+test('the zero-width joiner is kept - Sinhala cannot be written without it', () => {
+  // U+200D sits inside U+200B..U+200F, the range the anti-spoofing filter
+  // used to strip wholesale. That silently corrupted words as basic as
+  // "Sri Lanka" - the joiner is what makes the touching form of ශ්‍රී.
+  const sri = '\u0dc1\u0dca\u200d\u0dbb\u0dd3 \u0dbd\u0d82\u0d9a\u0dcf';
+  assert.equal(sanitizeText(sri), sri);
+  const tamil = '\u0b95\u0bcd\u200c\u0bb7';
+  assert.equal(sanitizeText(tamil), tamil, 'the non-joiner too');
+});
+
+test('the real spoofing characters are still stripped', () => {
+  assert.equal(sanitizeText('a\u200bb'), 'ab', 'zero-width space');
+  assert.equal(sanitizeText('a\u200eb\u200fc'), 'abc', 'bidi marks');
+  assert.equal(sanitizeText('a\u202eb'), 'ab', 'bidi override');
+  assert.equal(sanitizeText('a\ufeffb'), 'ab', 'BOM');
+});
+
+test('a CSV without a BOM is read as UTF-8, not Windows-1252', () => {
+  // SheetJS guesses the codepage of a bare CSV and lands on 1252, which turns
+  // every Sinhala character into three bytes of Latin junk. Every editor a
+  // teacher uses writes UTF-8, so the importer must say so.
+  const question = '\u0dc1\u0dca\u200d\u0dbb\u0dd3 \u0dbd\u0d82\u0d9a\u0dcf\u0dc0\u0dd9 \u0d85\u0d9c\u0db1\u0dd4\u0dc0\u0dbb?';
+  const csv = 'Question Text,Question Type,Option 1,Option 2,Correct Answer\n' +
+    question + ',multiple,\u0d9a\u0ddc\u0dc5\u0db9,\u0d9a\u0db3\u0dd4\u0dbd\u0dca\u0dbd,A\n';
+  const { quiz } = parseQuizWorkbook(Buffer.from(csv, 'utf8'), { title: 't' });
+  assert.equal(quiz.questions[0].text, question);
+  assert.equal(quiz.questions[0].options[0].text, '\u0d9a\u0ddc\u0dc5\u0db9');
+});
+
+test('the importer reads every new type', () => {
+  const csv = [
+    'Question Text,Question Type,Option 1,Option 2,Option 3,Option 4,Correct Answer,Explanation',
+    'Primes?,multiselect,2,3,4,5,"A,B,D",Only divisible by 1 and themselves',
+    'Bits in a byte?,numeric,,,,,8 \u00b1 0 bits,',
+    'Planets,ordering,Mercury,Venus,Earth,Mars,,',
+    'Ready?,poll,Yes,No,,,,',
+  ].join('\n');
+  const { quiz, warnings } = parseQuizWorkbook(Buffer.from(csv, 'utf8'), { title: 't' });
+  assert.deepEqual(warnings, []);
+  const [ms, num, ord, poll] = quiz.questions;
+  assert.deepEqual(ms.options.filter((o) => o.correct).map((o) => o.text), ['2', '3', '5']);
+  assert.equal(ms.explanation, 'Only divisible by 1 and themselves');
+  assert.equal(num.answer, 8);
+  assert.equal(num.unit, 'bits');
+  assert.deepEqual(ord.options.map((o) => o.text), ['Mercury', 'Venus', 'Earth', 'Mars']);
+  assert.equal(poll.type, 'poll');
+});
+
+
+console.log('\nnew question types');
+
+/** Open a one-question room with two students, ready to answer. */
+function liveRoom(question, settings = { speedBonus: false }) {
+  const q = normalizeQuiz({ title: 't', questions: [question] });
+  const room = new Room({ pin: '600001', quiz: q, settings, hostSocketId: 'h' });
+  const ada = room.addPlayer({ nickname: 'Ada', socketId: 'a' });
+  const ben = room.addPlayer({ nickname: 'Ben', socketId: 'b' });
+  room.phase = PHASE.QUESTION;
+  room.currentIndex = 0;
+  room.startAt = Date.now();
+  room.endAt = room.startAt + 30000;
+  return { room, ada, ben, q: room.currentQuestion };
+}
+
+test('multi-select is all or nothing', () => {
+  const { room, ada, ben, q } = liveRoom({
+    id: 'ms', type: 'multiselect', text: 'Which are prime?', timeLimitSec: 30, points: 1000,
+    options: [
+      { id: 'a', text: '2', correct: true }, { id: 'b', text: '3', correct: true },
+      { id: 'c', text: '4' }, { id: 'd', text: '5', correct: true },
+    ],
+  });
+  assert.equal(room.submitAnswer({ player: ada, optionIds: ['a', 'b', 'd'] }).ok, true);
+  assert.equal(room.submitAnswer({ player: ben, optionIds: ['a', 'b'] }).ok, true, 'a partial pick is a valid submission');
+  const { results, hostSummary } = room.finalizeQuestion();
+  assert.equal(results.get(ada.id).correct, true, 'exactly the right set');
+  assert.equal(results.get(ben.id).correct, false, 'missing one is wrong, not partly right');
+  assert.deepEqual(hostSummary.correctOptionIds.sort(), ['a', 'b', 'd']);
+  assert.equal(hostSummary.distribution.a, 2, 'every tile picked is counted');
+  assert.equal(q.type, 'multiselect');
+});
+
+test('a student never receives which multi-select tiles are correct', () => {
+  const { room, ada } = liveRoom({
+    id: 'ms', type: 'multiselect', text: 'x', timeLimitSec: 30, points: 1000,
+    options: [{ id: 'a', text: 'A', correct: true }, { id: 'b', text: 'B' }],
+  });
+  const view = room.questionForPlayer(ada);
+  assert.ok(view.options.every((o) => !('correct' in o)));
+});
+
+test('a poll scores nothing and leaves streaks alone', () => {
+  const { room, ada } = liveRoom({
+    id: 'p', type: 'poll', text: 'Ready for the test?', timeLimitSec: 30, points: 1000,
+    options: [{ id: 'y', text: 'Yes' }, { id: 'n', text: 'No' }],
+  });
+  ada.streak = 3;
+  ada.score = 2500;
+  assert.equal(room.submitAnswer({ player: ada, optionId: 'y' }).ok, true);
+  const { results, hostSummary } = room.finalizeQuestion();
+  const r = results.get(ada.id);
+  assert.equal(r.neutral, true);
+  assert.equal(r.pointsEarned, 0);
+  assert.equal(ada.streak, 3, 'a poll must not break a streak');
+  assert.equal(ada.score, 2500);
+  assert.equal(r.streakBroken, false);
+  assert.equal(hostSummary.neutral, true);
+  assert.deepEqual(hostSummary.correctOptionIds, [], 'a poll has no right answer');
+});
+
+test('a poll keeps its option order for every student', () => {
+  const { room, ada } = liveRoom({
+    id: 'p', type: 'poll', text: 'Agree?', timeLimitSec: 30, points: 0,
+    options: [{ id: '1', text: 'Strongly agree' }, { id: '2', text: 'Agree' }, { id: '3', text: 'Disagree' }],
+  }, { shuffleAnswers: true });
+  assert.deepEqual(room.questionForPlayer(ada).options.map((o) => o.id), ['1', '2', '3']);
+});
+
+test('numeric answers are right within the tolerance', () => {
+  const { room, ada, ben } = liveRoom({
+    id: 'n', type: 'numeric', text: 'g on Earth?', timeLimitSec: 30, points: 1000,
+    answer: 9.81, tolerance: 0.05, unit: 'm/s²',
+  });
+  assert.equal(room.submitAnswer({ player: ada, text: '9,8' }).ok, true, 'a decimal comma is accepted');
+  assert.equal(room.submitAnswer({ player: ben, text: '10' }).ok, true);
+  const { results, hostSummary } = room.finalizeQuestion();
+  assert.equal(results.get(ada.id).correct, true, '9.8 is within 0.05 of 9.81');
+  assert.equal(results.get(ben.id).correct, false);
+  assert.equal(hostSummary.answer, 9.81);
+  assert.equal(hostSummary.unit, 'm/s²');
+  assert.ok(hostSummary.textResponses.some((t) => t.display === '9,8'), 'typed values are grouped for the host');
+});
+
+test('a student never receives the numeric answer or tolerance', () => {
+  const { room, ada } = liveRoom({
+    id: 'n', type: 'numeric', text: 'x', timeLimitSec: 30, points: 1000, answer: 42, tolerance: 1,
+  });
+  const view = room.questionForPlayer(ada);
+  assert.equal('answer' in view, false);
+  assert.equal('tolerance' in view, false);
+});
+
+test('a non-number is refused as a numeric answer', () => {
+  const { room, ada } = liveRoom({
+    id: 'n', type: 'numeric', text: 'x', timeLimitSec: 30, points: 1000, answer: 1, tolerance: 0,
+  });
+  assert.deepEqual(room.submitAnswer({ player: ada, text: 'about ten' }), { ok: false, reason: 'empty_answer' });
+});
+
+test('ordering is right only in the exact sequence', () => {
+  const { room, ada, ben } = liveRoom({
+    id: 'o', type: 'ordering', text: 'Order the planets from the Sun', timeLimitSec: 30, points: 1000,
+    options: [{ id: 'me', text: 'Mercury' }, { id: 've', text: 'Venus' }, { id: 'ea', text: 'Earth' }],
+  });
+  assert.equal(room.submitAnswer({ player: ada, order: ['me', 've', 'ea'] }).ok, true);
+  assert.equal(room.submitAnswer({ player: ben, order: ['me', 'ea', 've'] }).ok, true);
+  const { results, hostSummary } = room.finalizeQuestion();
+  assert.equal(results.get(ada.id).correct, true);
+  assert.equal(results.get(ben.id).correct, false);
+  assert.deepEqual(hostSummary.correctOptionIds, ['me', 've', 'ea'], 'the canonical order, for the reveal');
+  assert.equal(hostSummary.textResponses.length, 2, 'sequences are grouped so a common mistake shows once');
+});
+
+test('ordering is always scrambled for students, whatever the setting', () => {
+  // The displayed order would otherwise be the answer.
+  const { room, ada } = liveRoom({
+    id: 'o', type: 'ordering', text: 'x', timeLimitSec: 30, points: 1000,
+    options: [{ id: '1', text: 'a' }, { id: '2', text: 'b' }, { id: '3', text: 'c' }, { id: '4', text: 'd' }, { id: '5', text: 'e' }],
+  }, { shuffleAnswers: false });
+  const seen = new Set();
+  for (const p of ['x1', 'x2', 'x3', 'x4', 'x5', 'x6']) {
+    const player = { ...ada, id: p };
+    seen.add(room.questionForPlayer(player).options.map((o) => o.id).join(''));
+  }
+  assert.ok(!seen.has('12345') || seen.size > 1, 'not every student sees the canonical order');
+});
+
+test('an incomplete ordering is refused', () => {
+  const { room, ada } = liveRoom({
+    id: 'o', type: 'ordering', text: 'x', timeLimitSec: 30, points: 1000,
+    options: [{ id: '1', text: 'a' }, { id: '2', text: 'b' }, { id: '3', text: 'c' }],
+  });
+  assert.equal(room.submitAnswer({ player: ada, order: ['1', '2'] }).ok, false);
+});
+
+test('an explanation reaches the reveal but never the question', () => {
+  const { room, ada } = liveRoom({
+    id: 'e', type: 'truefalse', text: 'The Moon is a planet.', timeLimitSec: 15, points: 800,
+    explanation: 'It orbits Earth, not the Sun - that makes it a moon.',
+    options: [{ id: 'true', text: 'True' }, { id: 'false', text: 'False', correct: true }],
+  });
+  assert.equal('explanation' in room.questionForPlayer(ada), false, 'not before they answer');
+  room.submitAnswer({ player: ada, optionId: 'false' });
+  const { hostSummary } = room.finalizeQuestion();
+  assert.equal(hostSummary.explanation, 'It orbits Earth, not the Sun - that makes it a moon.');
+});
+
+test('numeric answers can be re-marked like short answers', () => {
+  const { room, ada } = liveRoom({
+    id: 'n', type: 'numeric', text: 'x', timeLimitSec: 30, points: 1000, answer: 10, tolerance: 0,
+  });
+  room.submitAnswer({ player: ada, text: '9.9' });
+  room.finalizeQuestion();
+  room.phase = PHASE.ENDED;
+  assert.equal(ada.score, 0);
+  room.applyRegrades([{ questionId: 'n', key: '9.9', correct: true }]);
+  assert.equal(ada.score, 1000, 'the teacher decided 9.9 was close enough');
+});
+
+test('polls stay out of the hardest-question list and the class average', () => {
+  const quizWithPoll = normalizeQuiz({ title: 't', questions: [
+    { id: 'p', type: 'poll', text: 'Mood?', timeLimitSec: 10, points: 0, options: [{ id: 'a', text: 'Good' }, { id: 'b', text: 'Bad' }] },
+    { id: 'q', type: 'truefalse', text: 'x', timeLimitSec: 10, points: 100, options: [{ id: 'true', text: 'True', correct: true }, { id: 'false', text: 'False' }] },
+  ]});
+  const room = new Room({ pin: '600002', quiz: quizWithPoll, settings: {}, hostSocketId: 'h' });
+  const ada = room.addPlayer({ nickname: 'Ada', socketId: 'a' });
+  for (const [i, payload] of [[0, { optionId: 'a' }], [1, { optionId: 'true' }]]) {
+    room.phase = PHASE.QUESTION; room.currentIndex = i; room.startAt = Date.now(); room.endAt = room.startAt + 10000;
+    room.submitAnswer({ player: ada, ...payload });
+    room.finalizeQuestion();
+  }
+  const a = room.buildAnalytics();
+  assert.equal(a.overallAccuracy, 1, 'the poll did not drag the average to 50%');
+  assert.ok(!a.hardestQuestions.some((q) => q.questionId === 'p'));
+  const cell = a.matrix.rows[0].cells[0];
+  assert.equal(cell.status, 'answered', 'a poll answer is neither correct nor incorrect');
+  assert.equal(cell.response, 'Good');
+});
+
 
 console.log('\nre-marking short answers');
 

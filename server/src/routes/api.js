@@ -322,6 +322,7 @@ api.post('/generate', generateLimiter, async (req, res) => {
       count: req.body?.count,
       difficulty: req.body?.difficulty,
       gradeLevel: req.body?.gradeLevel,
+      language: req.body?.language,
     });
     res.json(result);
   } catch (err) {

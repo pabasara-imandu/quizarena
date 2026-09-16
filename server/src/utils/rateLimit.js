@@ -21,10 +21,17 @@ export function createBucket({ capacity = 20, refillPerSec = 10 } = {}) {
  * they get stripped before a name is ever stored or rendered.
  */
 function isInvisible(cp) {
+  // U+200C (zero-width non-joiner) and U+200D (zero-width joiner) are NOT
+  // stripped: they are letters in all but name for Sinhala, Tamil and other
+  // Indic scripts - ශ්‍රී (as in Sri Lanka) cannot be
+  // written without the joiner. Only the true spoofing characters go: the
+  // zero-width space and the bidi marks.
   return (
     cp < 0x20 ||
     cp === 0x7f ||
-    (cp >= 0x200b && cp <= 0x200f) ||
+    cp === 0x200b ||
+    cp === 0x200e ||
+    cp === 0x200f ||
     (cp >= 0x202a && cp <= 0x202e) ||
     cp === 0x2060 ||
     cp === 0xfeff

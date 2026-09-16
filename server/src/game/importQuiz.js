@@ -9,7 +9,9 @@ import { normalizeQuiz, ValidationError } from './quizSchema.js';
  * "QUESTIONTEXT" are all the same column):
  *
  *   Question Text   - required
- *   Question Type   - multiple | truefalse | short   (default: inferred)
+ *   Question Type   - multiple | multiselect | truefalse | short | numeric | ordering | poll
+ *                     (default: inferred)
+ *   Explanation     - optional, shown to everyone with the answer
  *   Option 1..5     - answer choices (multiple choice only)
  *   Correct Answer  - see resolveCorrect() below
  *   Time Limit      - seconds (default 20)
@@ -34,6 +36,7 @@ function keyOf(header) {
 const ALIASES = {
   text: ['questiontext', 'question', 'prompt', 'q'],
   type: ['questiontype', 'type'],
+  explanation: ['explanation', 'why', 'feedback'],
   correct: ['correctanswer', 'correct', 'answer', 'key'],
   time: ['timelimit', 'timelimitseconds', 'timelimitsec', 'time', 'seconds'],
   points: ['points', 'score', 'pointvalue'],
@@ -82,7 +85,10 @@ function resolveCorrect(raw, options) {
 export function parseQuizWorkbook(buffer, { title } = {}) {
   let workbook;
   try {
-    workbook = XLSX.read(buffer, { type: 'buffer' });
+    // Without a BOM, SheetJS guesses a CSV's encoding and lands on Windows-1252,
+    // which turns every Sinhala or Tamil character into three bytes of junk.
+    // Every editor a teacher uses saves UTF-8, so say so.
+    workbook = XLSX.read(buffer, { type: 'buffer', codepage: 65001 });
   } catch {
     throw new ValidationError('That file could not be read as a spreadsheet or CSV.');
   }
@@ -119,6 +125,10 @@ export function parseQuizWorkbook(buffer, { title } = {}) {
     if (['short', 'shortanswer', 'text', 'freetext', 'open'].includes(declaredType)) type = 'short';
     else if (['truefalse', 'tf', 'boolean', 'bool'].includes(declaredType)) type = 'truefalse';
     else if (['multiple', 'multiplechoice', 'mc', 'choice'].includes(declaredType)) type = 'multiple';
+    else if (['multiselect', 'multi', 'selectall', 'checkbox', 'checkboxes'].includes(declaredType)) type = 'multiselect';
+    else if (['numeric', 'number', 'num'].includes(declaredType)) type = 'numeric';
+    else if (['ordering', 'order', 'sequence', 'sort'].includes(declaredType)) type = 'ordering';
+    else if (['poll', 'survey', 'opinion'].includes(declaredType)) type = 'poll';
     // No usable type column: infer from the shape of the row.
     else if (filled.length >= 2) type = 'multiple';
     else if (/^(true|false)$/i.test(correctRaw)) type = 'truefalse';
@@ -130,7 +140,65 @@ export function parseQuizWorkbook(buffer, { title } = {}) {
       image: pick(row, ALIASES.image),
       timeLimitSec: Number(pick(row, ALIASES.time)) || 20,
       points: Number(pick(row, ALIASES.points)) || 1000,
+      explanation: pick(row, ALIASES.explanation) || null,
     };
+
+    // "8 ± 0.5 bits", "8+-0.5", "8" - the answer, an optional tolerance, an
+    // optional unit, in whatever spacing a teacher typed.
+    if (type === 'numeric') {
+      const m = correctRaw.match(/^\s*(-?[\d.,]+)\s*(?:(?:±|\+\/?-)\s*([\d.,]+))?\s*(.*)$/);
+      const answer = m ? Number(m[1].replace(',', '.')) : NaN;
+      if (!Number.isFinite(answer)) {
+        warnings.push('Row ' + rowNumber + ' skipped: numeric row needs a number in the answer column.');
+        return;
+      }
+      questions.push({
+        ...base,
+        answer,
+        tolerance: m?.[2] ? Number(m[2].replace(',', '.')) : 0,
+        unit: m?.[3]?.trim() || null,
+      });
+      return;
+    }
+
+    // Options in the columns ARE the answer, in order. No answer column needed.
+    if (type === 'ordering' || type === 'poll') {
+      if (filled.length < 2) {
+        warnings.push('Row ' + rowNumber + ' skipped: needs at least two options.');
+        return;
+      }
+      questions.push({
+        ...base,
+        options: filled.map((o, idx) => ({ id: 'r' + rowNumber + 'o' + idx, text: o.text, image: o.image })),
+      });
+      return;
+    }
+
+    // "A,C" / "1;3" / "Keyboard|Mouse" - every listed option is correct.
+    if (type === 'multiselect') {
+      if (filled.length < 2) {
+        warnings.push('Row ' + rowNumber + ' skipped: needs at least two options.');
+        return;
+      }
+      const texts = filled.map((o) => o.text);
+      const picked = new Set(
+        correctRaw.split(/[,;|]/).map((part) => resolveCorrect(part, texts)).filter((i) => i >= 0)
+      );
+      if (picked.size === 0) {
+        warnings.push('Row ' + rowNumber + ' skipped: could not match "' + correctRaw + '" to any option.');
+        return;
+      }
+      questions.push({
+        ...base,
+        options: filled.map((o, idx) => ({
+          id: 'r' + rowNumber + 'o' + idx,
+          text: o.text,
+          image: o.image,
+          correct: picked.has(idx),
+        })),
+      });
+      return;
+    }
 
     if (type === 'short') {
       const accepted = correctRaw

@@ -185,7 +185,7 @@ hold a WebSocket open.
 | `PORT` | no | Defaults to 4000. Most platforms inject this. |
 | `CLIENT_ORIGIN` | **yes in production** | The origin the *browser* is on. Gates CORS **and** Socket.IO. Comma-separate several. `*` allows any origin — fine for a demo, but it lets any website open sockets against your rooms. |
 | `NODE_ENV` | recommended | `production` |
-| `ANTHROPIC_API_KEY` | no | Turns `/api/generate` from an editable scaffold into real Claude-generated questions. |
+| `GEMINI_API_KEY` | no | Turns `/api/generate` from an editable scaffold into real AI-generated questions, in English, Sinhala or Tamil. Free from [aistudio.google.com](https://aistudio.google.com). |
 | `REDIS_URL` | no | Only to run more than one server process — see Scaling. |
 | `SERVER_INDEX` | **yes in a fleet** | 0-based. **Unique per server**, and must match the server's position in the client's `NEXT_PUBLIC_SERVER_URLS`. Decides the PIN range this instance mints: `0` → `1xxxxx`, `1` → `2xxxxx`, … |
 | `SERVER_LABEL` | no | Name on the admin dashboard. Defaults to `server-N`. |

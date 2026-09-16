@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { seededShuffle } from '../utils/rng.js';
 import { computeScore, rankPlayers, streakMultiplier } from './scoring.js';
 import { groupShortAnswers, matchesShortAnswer, normalizeAnswer } from './answerMatch.js';
+import { TYPED_TYPES } from './quizSchema.js';
 
 export const PHASE = {
   LOBBY: 'lobby',
@@ -202,12 +203,17 @@ export class Room {
     const q = this.currentQuestion;
     if (!q) return null;
 
-    // Free text has no options to scramble, and no options to leak.
-    let options =
-      q.type === 'short' ? [] : q.options.map((o) => ({ id: o.id, text: o.text, image: o.image }));
-    if (options.length && this.settings.shuffleAnswers && q.type !== 'truefalse') {
-      options = seededShuffle(options, player.id + ':' + q.id);
-    }
+    // Typed answers have no options to scramble, and no options to leak.
+    let options = q.options.map((o) => ({ id: o.id, text: o.text, image: o.image }));
+
+    // Ordering is ALWAYS scrambled, whatever the room setting says - the
+    // displayed order would otherwise be the answer. Polls keep their order,
+    // because "strongly agree ... strongly disagree" only makes sense in
+    // sequence. Everything else follows the setting.
+    const scramble =
+      q.type === 'ordering' ||
+      (options.length > 0 && this.settings.shuffleAnswers && q.type !== 'truefalse' && q.type !== 'poll');
+    if (scramble) options = seededShuffle(options, player.id + ':' + q.id);
 
     return {
       id: q.id,
@@ -219,8 +225,10 @@ export class Room {
       points: q.points,
       timeLimitMs: q.timeLimitSec * 1000,
       options,
-      // Never send acceptedAnswers to a player - the answer would be one
-      // devtools panel away.
+      unit: q.type === 'numeric' ? q.unit : undefined,
+      // Never the accepted answers, the numeric answer, the tolerance, the
+      // canonical order or the explanation - each would be one devtools
+      // panel away from every student.
     };
   }
 
@@ -245,6 +253,10 @@ export class Room {
       })),
       acceptedAnswers: q.type === 'short' ? q.acceptedAnswers : undefined,
       caseSensitive: q.type === 'short' ? q.caseSensitive : undefined,
+      answer: q.type === 'numeric' ? q.answer : undefined,
+      tolerance: q.type === 'numeric' ? q.tolerance : undefined,
+      unit: q.type === 'numeric' ? q.unit : undefined,
+      explanation: q.explanation,
     };
   }
 
@@ -255,7 +267,7 @@ export class Room {
    * player here - they learn it at reveal time, so the ack cannot be used to
    * brute-force the right option.
    */
-  submitAnswer({ player, optionId, text, skipped = false, now = Date.now() }) {
+  submitAnswer({ player, optionId, optionIds, order, text, skipped = false, now = Date.now() }) {
     const q = this.currentQuestion;
     if (!q || this.phase !== PHASE.QUESTION) return { ok: false, reason: 'not_accepting' };
     if (now > this.endAt + config.answerGraceMs) return { ok: false, reason: 'too_late' };
@@ -264,7 +276,19 @@ export class Room {
     if (bucket.has(player.id)) return { ok: false, reason: 'already_answered' };
 
     const elapsedMs = Math.max(0, Math.min(now - this.startAt, q.timeLimitSec * 1000));
-    const record = { elapsedMs, at: now, skipped: false, correct: false, optionId: null, text: null };
+    const record = {
+      elapsedMs,
+      at: now,
+      skipped: false,
+      correct: false,
+      optionId: null,
+      optionIds: null,
+      order: null,
+      text: null,
+      // A poll answer is neither right nor wrong. Scoring and streaks leave
+      // it alone; it only counts as "answered".
+      neutral: q.type === 'poll',
+    };
 
     if (skipped) {
       // A skip is a real, recorded decision: it never scores, but it counts as
@@ -278,6 +302,35 @@ export class Room {
       record.correct = matchesShortAnswer(cleaned, q.acceptedAnswers, {
         caseSensitive: q.caseSensitive,
       });
+    } else if (q.type === 'numeric') {
+      const cleaned = typeof text === 'string' ? text.trim().slice(0, 40) : '';
+      // Accept "1,5" and "1 500" the way a student who learned decimals with a
+      // comma, or thousands with a space, would type them.
+      const value = Number(cleaned.replace(/\s+/g, '').replace(',', '.'));
+      if (!cleaned || !Number.isFinite(value)) return { ok: false, reason: 'empty_answer' };
+      record.text = cleaned;
+      record.value = value;
+      record.correct = Math.abs(value - q.answer) <= q.tolerance + 1e-9;
+    } else if (q.type === 'multiselect') {
+      const chosen = Array.isArray(optionIds) ? [...new Set(optionIds.map(String))] : [];
+      const valid = chosen.filter((id) => q.options.some((o) => o.id === id));
+      if (valid.length === 0) return { ok: false, reason: 'bad_option' };
+      record.optionIds = valid;
+      // All or nothing: exactly the right set, no extras, nothing missing.
+      const want = new Set(q.options.filter((o) => o.correct).map((o) => o.id));
+      record.correct = valid.length === want.size && valid.every((id) => want.has(id));
+    } else if (q.type === 'ordering') {
+      const given = Array.isArray(order) ? order.map(String) : [];
+      const ids = q.options.map((o) => o.id);
+      const complete = given.length === ids.length && ids.every((id) => given.includes(id));
+      if (!complete) return { ok: false, reason: 'bad_option' };
+      record.order = given;
+      record.correct = given.every((id, i) => id === ids[i]);
+    } else if (q.type === 'poll') {
+      const chosen = q.options.find((o) => o.id === optionId);
+      if (!chosen) return { ok: false, reason: 'bad_option' };
+      record.optionId = optionId;
+      record.correct = false;
     } else {
       const chosen = q.options.find((o) => o.id === optionId);
       if (!chosen) return { ok: false, reason: 'bad_option' };
@@ -323,12 +376,17 @@ export class Room {
       }
 
       if (record.optionId) distribution[record.optionId] = (distribution[record.optionId] || 0) + 1;
+      // Multi-select counts every tile picked, so the host sees how often each
+      // one was chosen rather than how often each exact combination was.
+      for (const id of record.optionIds ?? []) distribution[id] = (distribution[id] || 0) + 1;
       player.answeredCount++;
       player.totalResponseMs += record.elapsedMs;
       if (record.skipped) player.skippedCount++;
 
       const hadStreak = player.streak;
-      if (record.correct) {
+      if (record.neutral) {
+        // A poll: nothing moves. Not the streak, not the score.
+      } else if (record.correct) {
         player.streak++;
         player.bestStreak = Math.max(player.bestStreak, player.streak);
         player.correctCount++;
@@ -336,14 +394,16 @@ export class Room {
         player.streak = 0;
       }
 
-      const { points, basePoints, speedComponent, multiplier, multiplierBonus } = computeScore({
-        base: q.points,
-        correct: record.correct,
-        elapsedMs: record.elapsedMs,
-        timeLimitMs,
-        streak: player.streak,
-        speedBonusEnabled: this.settings.speedBonus,
-      });
+      const { points, basePoints, speedComponent, multiplier, multiplierBonus } = record.neutral
+        ? { points: 0, basePoints: 0, speedComponent: 0, multiplier: 1, multiplierBonus: 0 }
+        : computeScore({
+            base: q.points,
+            correct: record.correct,
+            elapsedMs: record.elapsedMs,
+            timeLimitMs,
+            streak: player.streak,
+            speedBonusEnabled: this.settings.speedBonus,
+          });
 
       player.score += points;
       record.points = points;
@@ -352,7 +412,10 @@ export class Room {
         answered: true,
         skipped: record.skipped,
         correct: record.correct,
+        neutral: !!record.neutral,
         chosenOptionId: record.optionId,
+        chosenOptionIds: record.optionIds,
+        submittedOrder: record.order,
         submittedText: record.text,
         pointsEarned: points,
         basePoints,
@@ -360,7 +423,7 @@ export class Room {
         multiplier,
         multiplierBonus,
         streak: player.streak,
-        streakBroken: hadStreak > 1 && player.streak === 0,
+        streakBroken: !record.neutral && hadStreak > 1 && player.streak === 0,
         nextMultiplier: streakMultiplier(player.streak + 1),
         score: player.score,
         elapsedMs: record.elapsedMs,
@@ -387,13 +450,19 @@ export class Room {
         questionId: q.id,
         index: this.currentIndex,
         type: q.type,
-        correctOptionIds: q.options.filter((o) => o.correct).map((o) => o.id),
+        neutral: q.type === 'poll',
+        // For ordering this is the canonical sequence, in order.
+        correctOptionIds:
+          q.type === 'ordering'
+            ? q.options.map((o) => o.id)
+            : q.options.filter((o) => o.correct).map((o) => o.id),
         acceptedAnswers: q.type === 'short' ? q.acceptedAnswers : null,
+        answer: q.type === 'numeric' ? q.answer : null,
+        tolerance: q.type === 'numeric' ? q.tolerance : null,
+        unit: q.type === 'numeric' ? q.unit : null,
+        explanation: q.explanation,
         distribution,
-        textResponses:
-          q.type === 'short'
-            ? groupShortAnswers(answerRecords, { caseSensitive: q.caseSensitive }).slice(0, 12)
-            : null,
+        textResponses: groupTyped(q, answerRecords)?.slice(0, 12) ?? null,
         answeredTotal,
         correctTotal,
         skippedTotal,
@@ -426,7 +495,9 @@ export class Room {
     for (const change of Array.isArray(changes) ? changes : []) {
       const originalIndex = this.quiz.questions.findIndex((q) => q.id === change?.questionId);
       const q = this.quiz.questions[originalIndex];
-      if (!q || q.type !== 'short') continue;
+      // Only typed answers can be re-marked. A tile is unambiguous; there is
+      // nothing to judge, and an override would just be a way to fake a board.
+      if (!q || !TYPED_TYPES.includes(q.type)) continue;
 
       const bucket = this.answers[originalIndex];
       const correct = !!change.correct;
@@ -572,7 +643,10 @@ export class Room {
       const answered = records.length;
       const correct = records.filter((r) => r.correct).length;
       const distribution = Object.fromEntries(q.options.map((o) => [o.id, 0]));
-      for (const r of records) distribution[r.optionId] = (distribution[r.optionId] || 0) + 1;
+      for (const r of records) {
+        if (r.optionId) distribution[r.optionId] = (distribution[r.optionId] || 0) + 1;
+        for (const id of r.optionIds ?? []) distribution[id] = (distribution[id] || 0) + 1;
+      }
 
       return {
         position,
@@ -590,17 +664,21 @@ export class Room {
           count: distribution[o.id] || 0,
         })),
         acceptedAnswers: q.type === 'short' ? q.acceptedAnswers : null,
-        textResponses:
-          q.type === 'short'
-            ? groupShortAnswers(records, { caseSensitive: q.caseSensitive }).map((g) => ({
-                ...g,
-                regraded: records.some(
-                  (r) =>
-                    r.regraded &&
-                    normalizeAnswer(r.text, { caseSensitive: q.caseSensitive }) === g.key
-                ),
-              }))
-            : null,
+        answer: q.type === 'numeric' ? q.answer : null,
+        tolerance: q.type === 'numeric' ? q.tolerance : null,
+        unit: q.type === 'numeric' ? q.unit : null,
+        explanation: q.explanation,
+        neutral: q.type === 'poll',
+        correctOrder: q.type === 'ordering' ? q.options.map((o) => o.id) : null,
+        textResponses: groupTyped(q, records)?.map((g) => ({
+          ...g,
+          regraded: records.some(
+            (r) =>
+              r.regraded &&
+              r.text != null &&
+              normalizeAnswer(r.text, { caseSensitive: q.caseSensitive }) === g.key
+          ),
+        })) ?? null,
         answered,
         skipped: records.filter((r) => r.skipped).length,
         unanswered: Math.max(0, this.players.size - answered),
@@ -613,7 +691,7 @@ export class Room {
     });
 
     const ranked = rankPlayers([...this.players.values()]);
-    const attempted = perQuestion.filter((q) => q.answered > 0);
+    const attempted = perQuestion.filter((q) => q.answered > 0 && !q.neutral);
 
     return {
       quizTitle: this.quiz.title,
@@ -684,10 +762,21 @@ export class Room {
           return { status: 'no_answer', points: 0, responseMs: null, response: null };
         }
         const q = this.quiz.questions[originalIndex];
-        const response =
-          record.text != null
+        const label = (id) => q.options.find((o) => o.id === id)?.text ?? id;
+        const response = record.skipped
+          ? null
+          : record.text != null
             ? record.text
-            : (q.options.find((o) => o.id === record.optionId)?.text ?? null);
+            : record.order
+              ? record.order.map(label).join(' \u2192 ')
+              : record.optionIds
+                ? record.optionIds.map(label).join(', ')
+                : record.optionId
+                  ? label(record.optionId)
+                  : null;
+        if (record.neutral) {
+          return { status: 'answered', points: 0, responseMs: record.elapsedMs, response };
+        }
         return {
           status: record.skipped ? 'skipped' : record.correct ? 'correct' : 'incorrect',
           points: record.points ?? 0,
@@ -699,6 +788,32 @@ export class Room {
 
     return { questions, rows };
   }
+}
+
+/**
+ * Group the answers to a question that has no tiles to count.
+ *
+ * Short and numeric answers group by their normalised text, so "Paris" and
+ * "paris" are one row; ordering answers group by the exact sequence given, so
+ * the host can see that eleven students swapped the same two steps. Tile
+ * questions return null - their distribution lives on the tiles.
+ */
+function groupTyped(q, records) {
+  if (q.type === 'short' || q.type === 'numeric') {
+    return groupShortAnswers(records, { caseSensitive: !!q.caseSensitive });
+  }
+  if (q.type !== 'ordering') return null;
+
+  const label = (id) => q.options.find((o) => o.id === id)?.text ?? id;
+  const buckets = new Map();
+  for (const r of records) {
+    if (r.skipped || !r.order) continue;
+    const key = r.order.join('|');
+    const existing = buckets.get(key);
+    if (existing) existing.count++;
+    else buckets.set(key, { key, display: r.order.map(label).join(' → '), count: 1, correct: !!r.correct });
+  }
+  return [...buckets.values()].sort((a, b) => b.count - a.count);
 }
 
 /** Marks a teacher can type by hand. Wide, but not a score-injection vector. */

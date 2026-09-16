@@ -6,7 +6,29 @@ const MAX_OPTIONS = 6;
 const MAX_ACCEPTED_ANSWERS = 12;
 const MAX_URL_LENGTH = 2048;
 
-export const QUESTION_TYPES = ['multiple', 'truefalse', 'short'];
+/**
+ * Every kind of question the engine can grade.
+ *
+ *  multiple    one right answer among tiles
+ *  multiselect every right answer must be picked, nothing else - all or nothing
+ *  truefalse   two fixed tiles
+ *  short       typed text, matched against a list of accepted spellings
+ *  numeric     typed number, right if within a tolerance of the answer
+ *  ordering    tiles put into the correct sequence
+ *  poll        tiles with no right answer - nobody scores, nobody's streak moves
+ */
+export const QUESTION_TYPES = [
+  'multiple',
+  'multiselect',
+  'truefalse',
+  'short',
+  'numeric',
+  'ordering',
+  'poll',
+];
+
+/** Types whose answer is typed rather than tapped - the ones a host can re-mark. */
+export const TYPED_TYPES = ['short', 'numeric'];
 
 export class ValidationError extends Error {}
 
@@ -66,7 +88,25 @@ export function normalizeQuestion(q, i = 0) {
     image: sanitizeImageUrl(q?.image),
     timeLimitSec: clamp(Number(q?.timeLimitSec) || 20, 5, 300),
     points: clamp(Math.round(Number(q?.points) || 1000), 0, 10000),
+    // Shown to everyone with the answer. The moment after a reveal is when a
+    // student is most receptive, so this is where a quiz becomes teaching.
+    explanation: sanitizeText(q?.explanation, 600) || null,
   };
+
+  if (type === 'numeric') {
+    const answer = Number(q?.answer);
+    if (!Number.isFinite(answer)) {
+      throw new ValidationError(label + ' needs a numeric answer.');
+    }
+    const tolerance = Math.abs(Number(q?.tolerance) || 0);
+    return {
+      ...base,
+      options: [],
+      answer,
+      tolerance: Number.isFinite(tolerance) ? tolerance : 0,
+      unit: sanitizeText(q?.unit, 20) || null,
+    };
+  }
 
   if (type === 'short') {
     const accepted = (Array.isArray(q?.acceptedAnswers) ? q.acceptedAnswers : [q?.correctAnswer])
@@ -117,6 +157,25 @@ export function normalizeQuestion(q, i = 0) {
   if (new Set(options.map((o) => o.id)).size !== options.length) {
     throw new ValidationError(label + ' has duplicate option ids.');
   }
+
+  if (type === 'poll') {
+    // A poll has opinions, not answers. Strip any stray flag so nothing
+    // downstream can mistake it for a gradable question.
+    return { ...base, options: options.map((o) => ({ ...o, correct: false })) };
+  }
+
+  if (type === 'ordering') {
+    // The array order IS the answer. Flags are meaningless here.
+    return { ...base, options: options.map((o) => ({ ...o, correct: false })) };
+  }
+
+  if (type === 'multiselect') {
+    if (!options.some((o) => o.correct)) {
+      throw new ValidationError(label + ' needs at least one correct answer marked.');
+    }
+    return { ...base, options };
+  }
+
   if (!options.some((o) => o.correct)) {
     throw new ValidationError(label + ' has no correct answer marked.');
   }

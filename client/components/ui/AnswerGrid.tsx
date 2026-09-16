@@ -26,10 +26,14 @@ interface Props {
   options: Option[];
   onSelect?: (optionId: string) => void;
   selectedId?: string | null;
+  /** Multi-select: every tile the student has ticked so far. */
+  selectedIds?: string[] | null;
   /** After the reveal: which ids were right, so we can dim the wrong ones. */
   correctIds?: string[] | null;
+  /** A poll reveal: show the counts, dim nothing - there is no wrong answer. */
+  neutral?: boolean;
   disabled?: boolean;
-  /** Host view: live answer counts under each tile. */
+  /** Host view (or a poll reveal): live answer counts under each tile. */
   counts?: Record<string, number> | null;
   totalAnswers?: number;
 }
@@ -38,20 +42,23 @@ export function AnswerGrid({
   options,
   onSelect,
   selectedId,
+  selectedIds,
   correctIds,
+  neutral = false,
   disabled,
   counts,
   totalAnswers,
 }: Props) {
-  const revealed = !!correctIds;
+  const revealed = !!correctIds && !neutral;
   const interactive = !!onSelect && !disabled;
+  const chosen = new Set(selectedIds ?? (selectedId ? [selectedId] : []));
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {options.map((option, i) => {
         const tile = TILES[i % TILES.length];
         const isCorrect = revealed && correctIds!.includes(option.id);
-        const isChosen = selectedId === option.id;
+        const isChosen = chosen.has(option.id);
         const dimmed = revealed && !isCorrect;
         const count = counts?.[option.id] ?? 0;
         const share = totalAnswers ? Math.round((count / totalAnswers) * 100) : 0;
@@ -75,7 +82,7 @@ export function AnswerGrid({
               !interactive && !revealed ? 'cursor-default' : '',
             ].join(' ')}
           >
-            {/* Live distribution bar for the host view. */}
+            {/* Live distribution bar for the host view, and for a poll's reveal. */}
             {counts && (
               <span
                 className="absolute inset-y-0 left-0 bg-black/25 transition-all duration-700 ease-out"
@@ -106,9 +113,9 @@ export function AnswerGrid({
 
               <span className="flex-1 text-[17px] leading-snug sm:text-lg">{option.text}</span>
 
-              {isChosen && !revealed && (
+              {isChosen && !revealed && !counts && (
                 <span className="shrink-0 text-xs font-bold uppercase tracking-wide opacity-90">
-                  yours
+                  {selectedIds ? '✓' : 'yours'}
                 </span>
               )}
               {isCorrect && <span className="shrink-0 text-2xl">✓</span>}

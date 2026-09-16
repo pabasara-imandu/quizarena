@@ -5,9 +5,10 @@ import { normalizeQuiz } from './quizSchema.js';
  *
  * Two paths, chosen automatically:
  *
- *  1. `ANTHROPIC_API_KEY` is set (and `@anthropic-ai/sdk` installed) -> a real
- *     call to Claude with a JSON schema constraining the shape, so the result
- *     is guaranteed to parse into our quiz format.
+ *  1. `GEMINI_API_KEY` is set -> a real call to Gemini with a response schema
+ *     constraining the shape, so the result is guaranteed to parse into our
+ *     quiz format. Gemini is used because it writes natural Sinhala and Tamil,
+ *     which is what a national tool needs, and its free tier covers a school.
  *  2. Otherwise -> a deterministic scaffold. Every question is a real, editable
  *     row with the topic filled in and the answer left obviously blank, so the
  *     endpoint is useful offline and in CI without pretending to know facts it
@@ -18,63 +19,46 @@ import { normalizeQuiz } from './quizSchema.js';
  * to tell a real fact from a fabricated one.
  */
 
-const MODEL = 'claude-opus-5';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
-const QUESTION_SCHEMA = {
-  type: 'object',
-  properties: {
-    title: { type: 'string' },
-    questions: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          text: { type: 'string' },
-          type: { type: 'string', enum: ['multiple', 'truefalse', 'short'] },
-          options: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                text: { type: 'string' },
-                correct: { type: 'boolean' },
-              },
-              required: ['text', 'correct'],
-              additionalProperties: false,
-            },
-          },
-          acceptedAnswers: { type: 'array', items: { type: 'string' } },
-          timeLimitSec: { type: 'integer' },
-          points: { type: 'integer' },
-        },
-        required: ['text', 'type', 'options', 'acceptedAnswers', 'timeLimitSec', 'points'],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ['title', 'questions'],
-  additionalProperties: false,
+export const LANGUAGES = {
+  en: 'English',
+  si: 'Sinhala (සිංහල)',
+  ta: 'Tamil (தமிழ்)',
 };
 
-export async function generateQuiz({ topic, count = 5, difficulty = 'mixed', gradeLevel = '' }) {
+export async function generateQuiz({
+  topic,
+  count = 5,
+  difficulty = 'mixed',
+  gradeLevel = '',
+  language = 'en',
+}) {
   const safeCount = Math.min(Math.max(Math.round(Number(count) || 5), 1), 20);
   const cleanTopic = String(topic || '').trim().slice(0, 200);
+  const lang = Object.hasOwn(LANGUAGES, language) ? language : 'en';
   if (!cleanTopic) {
     const err = new Error('Give the generator a topic to work from.');
     err.status = 400;
     throw err;
   }
 
-  if (process.env.ANTHROPIC_API_KEY) {
+  if (process.env.GEMINI_API_KEY) {
     try {
-      return await generateWithClaude({ topic: cleanTopic, count: safeCount, difficulty, gradeLevel });
+      return await generateWithGemini({
+        topic: cleanTopic,
+        count: safeCount,
+        difficulty,
+        gradeLevel,
+        language: lang,
+      });
     } catch (err) {
       // Never fail the request because the model was unavailable - fall back
       // to the scaffold and tell the caller what happened.
       return {
         ...buildScaffold({ topic: cleanTopic, count: safeCount }),
         source: 'scaffold',
-        notice: 'Claude was unreachable (' + err.message + '), so this is an editable scaffold.',
+        notice: 'The AI was unreachable (' + err.message + '), so this is an editable scaffold.',
       };
     }
   }
@@ -82,53 +66,104 @@ export async function generateQuiz({ topic, count = 5, difficulty = 'mixed', gra
   return {
     ...buildScaffold({ topic: cleanTopic, count: safeCount }),
     source: 'scaffold',
-    notice:
-      'Set ANTHROPIC_API_KEY on the server to generate real questions. This is an editable scaffold.',
+    notice: 'Set GEMINI_API_KEY on the server to generate real questions. This is an editable scaffold.',
   };
 }
 
-async function generateWithClaude({ topic, count, difficulty, gradeLevel }) {
-  const { default: Anthropic } = await import('@anthropic-ai/sdk');
-  const client = new Anthropic();
+async function generateWithGemini({ topic, count, difficulty, gradeLevel, language }) {
+  const { GoogleGenAI, Type } = await import('@google/genai');
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-  const audience = gradeLevel ? ' The audience is ' + gradeLevel + '.' : '';
-
-  const response = await client.messages.create({
-    model: MODEL,
-    max_tokens: 16000,
-    thinking: { type: 'adaptive' },
-    output_config: { format: { type: 'json_schema', schema: QUESTION_SCHEMA } },
-    system:
-      'You write classroom quiz questions. Every question must have exactly one ' +
-      'unambiguously correct answer that a well-prepared student could defend from ' +
-      'a textbook. Distractors must be plausible but clearly wrong on inspection - ' +
-      'never a second defensible answer. Prefer questions that test understanding ' +
-      'over recall of trivia. If you are not confident a fact is correct, choose a ' +
-      'different question rather than guessing.',
-    messages: [
-      {
-        role: 'user',
-        content:
-          'Write ' + count + ' quiz questions about: ' + topic + '.' + audience +
-          ' Difficulty: ' + difficulty + '.' +
-          ' Mix multiple-choice (4 options, exactly one correct) with a few true/false' +
-          ' and at most one short-answer question. For multiple-choice and true/false,' +
-          ' put the options in `options` and leave `acceptedAnswers` empty. For' +
-          ' short-answer, leave `options` empty and list every spelling you would' +
-          ' accept in `acceptedAnswers`. Use timeLimitSec between 15 and 45, and' +
-          ' points of 1000 (1500 for harder questions).',
+  const schema = {
+    type: Type.OBJECT,
+    properties: {
+      title: { type: Type.STRING },
+      questions: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            text: { type: Type.STRING },
+            type: {
+              type: Type.STRING,
+              format: 'enum',
+              enum: ['multiple', 'multiselect', 'truefalse', 'short', 'numeric'],
+            },
+            options: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  text: { type: Type.STRING },
+                  correct: { type: Type.BOOLEAN },
+                },
+                required: ['text', 'correct'],
+              },
+            },
+            acceptedAnswers: { type: Type.ARRAY, items: { type: Type.STRING } },
+            answer: { type: Type.NUMBER },
+            tolerance: { type: Type.NUMBER },
+            unit: { type: Type.STRING },
+            explanation: { type: Type.STRING },
+            timeLimitSec: { type: Type.INTEGER },
+            points: { type: Type.INTEGER },
+          },
+          required: ['text', 'type', 'options', 'acceptedAnswers', 'explanation', 'timeLimitSec', 'points'],
+        },
       },
-    ],
+    },
+    required: ['title', 'questions'],
+  };
+
+  const audience = gradeLevel ? ' The students are ' + gradeLevel + '.' : '';
+  const languageLine =
+    language === 'en'
+      ? ''
+      : ' Write EVERYTHING - the title, every question, every option, every accepted answer and' +
+        ' every explanation - in ' +
+        LANGUAGES[language] +
+        '. Use natural, correct ' +
+        LANGUAGES[language].split(' ')[0] +
+        ' as a teacher in Sri Lanka would write it, not a word-for-word translation from English.' +
+        ' Keep numbers as digits.';
+
+  const response = await ai.models.generateContent({
+    model: MODEL,
+    contents:
+      'Write ' + count + ' quiz questions about: ' + topic + '.' + audience +
+      ' Difficulty: ' + difficulty + '.' +
+      ' Mostly multiple-choice (4 options, exactly one correct). Include one or two' +
+      ' true/false, at most one multiselect (4-5 options, two or three correct), and if' +
+      ' the topic has a clear numeric fact, one numeric question (give `answer`, a sensible' +
+      ' `tolerance`, and a `unit` if there is one). At most one short-answer question.' +
+      ' For tile questions put the options in `options` and leave `acceptedAnswers` empty.' +
+      ' For short-answer leave `options` empty and list every spelling you would accept in' +
+      ' `acceptedAnswers`. For every question write a one- or two-sentence `explanation` of' +
+      ' why the answer is correct, as you would say it to the class after revealing it.' +
+      ' Use timeLimitSec between 15 and 45, and points of 1000 (1500 for harder questions).' +
+      languageLine,
+    config: {
+      systemInstruction:
+        'You write classroom quiz questions for school teachers. Every graded question must' +
+        ' have an unambiguously correct answer that a well-prepared student could defend from' +
+        ' a textbook. Distractors must be plausible but clearly wrong on inspection - never a' +
+        ' second defensible answer. Prefer questions that test understanding over recall of' +
+        ' trivia. If you are not confident a fact is correct, choose a different question' +
+        ' rather than guessing.',
+      responseMimeType: 'application/json',
+      responseSchema: schema,
+      temperature: 0.7,
+    },
   });
 
-  const block = response.content.find((b) => b.type === 'text');
-  const parsed = JSON.parse(block.text);
+  const parsed = JSON.parse(response.text);
 
   return {
     quiz: normalizeQuiz({ title: parsed.title || topic, questions: parsed.questions }),
-    source: 'claude',
+    source: 'gemini',
     model: MODEL,
-    notice: 'Generated by Claude. Review every answer before you run this with a class.',
+    language,
+    notice: 'AI-generated draft. Review every answer before you run this with a class.',
   };
 }
 

@@ -427,14 +427,17 @@ export function registerSocketHandlers(io) {
       const result = room.submitAnswer({
         player,
         optionId: payload?.optionId ?? null,
+        optionIds: Array.isArray(payload?.optionIds) ? payload.optionIds.slice(0, 12) : undefined,
+        order: Array.isArray(payload?.order) ? payload.order.slice(0, 12) : undefined,
         text: payload?.text,
-        // A skip is explicit: either the flag, or a deliberate null optionId
-        // with no text alongside it (the "I'm done thinking" button). The
-        // text check matters because a short-answer submission legitimately
-        // carries a null optionId.
+        // A skip is explicit: the flag, or a deliberate null optionId with no
+        // other answer shape alongside it (the "I'm done thinking" button).
         skipped:
           payload?.skipped === true ||
-          (payload?.optionId === null && typeof payload?.text !== 'string'),
+          (payload?.optionId === null &&
+            typeof payload?.text !== 'string' &&
+            !Array.isArray(payload?.optionIds) &&
+            !Array.isArray(payload?.order)),
       });
       if (!result.ok) return respond(cb, fail(answerError(result.reason), result.reason));
 

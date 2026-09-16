@@ -35,6 +35,7 @@ export function StartFromModal({
   const [topic, setTopic] = useState('');
   const [count, setCount] = useState(5);
   const [gradeLevel, setGradeLevel] = useState('');
+  const [language, setLanguage] = useState<'en' | 'si' | 'ta'>('en');
   const [dragging, setDragging] = useState(false);
 
   const handleFile = async (file: File) => {
@@ -79,7 +80,7 @@ export function StartFromModal({
       const res = await fetch(serverUrl() + '/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: topic.trim(), count, gradeLevel: gradeLevel.trim() }),
+        body: JSON.stringify({ topic: topic.trim(), count, gradeLevel: gradeLevel.trim(), language }),
       });
       const data = await res.json();
 
@@ -244,6 +245,33 @@ export function StartFromModal({
                   maxLength={40}
                   onChange={(e) => setGradeLevel(e.target.value)}
                 />
+              </div>
+            </div>
+
+            {/* The medium of instruction. The whole quiz - questions, options,
+                accepted spellings, explanations - is written in this language,
+                natively, not translated from English. */}
+            <div>
+              <span className="field-label">Language</span>
+              <div className="segmented" role="radiogroup" aria-label="Quiz language">
+                {(
+                  [
+                    ['en', 'English'],
+                    ['si', 'සිංහල'],
+                    ['ta', 'தமிழ்'],
+                  ] as const
+                ).map(([code, name]) => (
+                  <button
+                    key={code}
+                    type="button"
+                    role="radio"
+                    aria-checked={language === code}
+                    onClick={() => setLanguage(code)}
+                    className="segmented-item"
+                  >
+                    {name}
+                  </button>
+                ))}
               </div>
             </div>
 

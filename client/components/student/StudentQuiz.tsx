@@ -5,6 +5,7 @@ import { Countdown } from '@/components/ui/Countdown';
 import { Leaderboard } from '@/components/ui/Leaderboard';
 import { QuestionMedia } from '@/components/ui/QuestionMedia';
 import { ShortAnswer } from '@/components/ui/ShortAnswer';
+import { OrderAnswer } from '@/components/ui/OrderAnswer';
 import { StreakMeter } from '@/components/ui/StreakMeter';
 import { EmojiBar } from '@/components/ui/EmojiBar';
 import { ResultMark, RESULT_TONE, type ResultStatus } from '@/components/ui/ResultMark';
@@ -20,9 +21,16 @@ interface Props {
   score: number;
   streak: number;
   selectedId: string | null;
+  /** Multi-select: the tiles ticked so far (before submit) or submitted. */
+  selectedIds: string[];
+  submittedOrder: string[] | null;
   submittedText: string | null;
   hasAnswered: boolean;
   onSelect: (optionId: string) => void;
+  /** Multi-select: toggle a tile, then submit the set. */
+  onToggle: (optionId: string) => void;
+  onSubmitMulti: () => void;
+  onSubmitOrder: (order: string[]) => void;
   onSubmitText: (text: string) => void;
   onSkip: () => void;
   allowSkip: boolean;
@@ -31,6 +39,14 @@ interface Props {
   result: PlayerResult | null;
   correctIds: string[] | null;
   acceptedAnswers: string[] | null;
+  /** Numeric reveal. */
+  answer: number | null;
+  unit: string | null;
+  /** Everyone's "why", from the teacher. */
+  explanation: string | null;
+  /** Poll reveal: what the room thought. */
+  pollCounts: Record<string, number> | null;
+  pollTotal: number;
   topThree: LeaderboardRow[];
   leaderboard: LeaderboardRow[];
   myRank: { rank: number; totalPlayers: number } | null;
@@ -56,9 +72,14 @@ export function StudentQuiz(props: Props) {
     score,
     streak,
     selectedId,
+    selectedIds,
+    submittedOrder,
     submittedText,
     hasAnswered,
     onSelect,
+    onToggle,
+    onSubmitMulti,
+    onSubmitOrder,
     onSubmitText,
     onSkip,
     allowSkip,
@@ -66,6 +87,11 @@ export function StudentQuiz(props: Props) {
     result,
     correctIds,
     acceptedAnswers,
+    answer,
+    unit,
+    explanation,
+    pollCounts,
+    pollTotal,
     topThree,
     leaderboard,
     myRank,
@@ -80,7 +106,8 @@ export function StudentQuiz(props: Props) {
   } = props;
 
   const blocked = locked || mustReturnToFullscreen;
-  const isShort = question?.type === 'short';
+  const kind = question?.type;
+  const typed = kind === 'short' || kind === 'numeric';
 
   return (
     <div className="relative mx-auto flex min-h-[100dvh] max-w-2xl flex-col px-4 py-4">
@@ -115,8 +142,11 @@ export function StudentQuiz(props: Props) {
             <div className="flex items-start gap-4">
               <div className="min-w-0 flex-1">
                 <p className="text-xs uppercase tracking-wide text-slate-500">
-                  Question {question.index + 1} of {question.total} · {question.points} pts
-                  {isShort && ' · type your answer'}
+                  Question {question.index + 1} of {question.total}
+                  {kind === 'poll' ? ' · poll' : ' · ' + question.points + ' pts'}
+                  {typed && ' · type your answer'}
+                  {kind === 'multiselect' && ' · pick every right one'}
+                  {kind === 'ordering' && ' · put in order'}
                 </p>
                 <h1 className="mt-1.5 font-display text-xl font-bold leading-snug sm:text-2xl">
                   {question.text}
@@ -131,13 +161,44 @@ export function StudentQuiz(props: Props) {
           {/* Centred in whatever space is left, so a two-option true/false does
               not leave a dead band down the middle of a phone screen. */}
           <div className="mt-4 flex flex-1 flex-col justify-center">
-            {isShort ? (
+            {typed ? (
               <ShortAnswer
                 onSubmit={onSubmitText}
                 disabled={blocked}
                 submitted={hasAnswered}
                 submittedText={submittedText}
+                numeric={kind === 'numeric'}
+                unit={question.unit}
               />
+            ) : kind === 'ordering' ? (
+              <OrderAnswer
+                options={question.options}
+                onSubmit={onSubmitOrder}
+                disabled={blocked}
+                submitted={hasAnswered}
+                submittedOrder={submittedOrder}
+              />
+            ) : kind === 'multiselect' ? (
+              <div className="space-y-3">
+                <AnswerGrid
+                  options={question.options}
+                  selectedIds={selectedIds}
+                  onSelect={onToggle}
+                  disabled={hasAnswered || blocked}
+                />
+                {!hasAnswered && (
+                  <button
+                    type="button"
+                    className="btn-primary w-full py-3.5 text-lg"
+                    disabled={blocked || selectedIds.length === 0}
+                    onClick={onSubmitMulti}
+                  >
+                    {selectedIds.length === 0
+                      ? 'Pick every right answer'
+                      : 'Submit ' + selectedIds.length + (selectedIds.length === 1 ? ' answer' : ' answers')}
+                  </button>
+                )}
+              </div>
             ) : (
               <AnswerGrid
                 options={question.options}
@@ -158,7 +219,7 @@ export function StudentQuiz(props: Props) {
             ) : (
               <>
                 <p className="text-center text-sm text-slate-400">
-                  Answer faster to score more points.
+                  {kind === 'poll' ? 'There is no wrong answer here.' : 'Answer faster to score more points.'}
                 </p>
 
                 {/* Skip tells the server "I'm done thinking" so the room can
@@ -188,6 +249,11 @@ export function StudentQuiz(props: Props) {
             question={question}
             correctIds={correctIds}
             acceptedAnswers={acceptedAnswers}
+            answer={answer}
+            unit={unit}
+            explanation={explanation}
+            pollCounts={pollCounts}
+            pollTotal={pollTotal}
             topThree={topThree}
           />
         ) : (
@@ -322,27 +388,52 @@ function Reveal({
   question,
   correctIds,
   acceptedAnswers,
+  answer,
+  unit,
+  explanation,
+  pollCounts,
+  pollTotal,
   topThree,
 }: {
   result: PlayerResult;
   question: LiveQuestion | null;
   correctIds: string[] | null;
   acceptedAnswers: string[] | null;
+  answer: number | null;
+  unit: string | null;
+  explanation: string | null;
+  pollCounts: Record<string, number> | null;
+  pollTotal: number;
   topThree: LeaderboardRow[];
 }) {
-  const status: ResultStatus = result.skipped
-    ? 'skipped'
-    : !result.answered
-      ? 'timeout'
-      : result.correct
-        ? 'correct'
-        : 'incorrect';
+  const status: ResultStatus = result.neutral && result.answered
+    ? 'voted'
+    : result.skipped
+      ? 'skipped'
+      : !result.answered
+        ? 'timeout'
+        : result.correct
+          ? 'correct'
+          : 'incorrect';
   const tone = RESULT_TONE[status];
+  const label = (id: string) => question?.options.find((o) => o.id === id)?.text ?? id;
 
+  // What "the answer" is depends on the kind of question.
   const correctText =
-    acceptedAnswers?.length
-      ? acceptedAnswers[0]
-      : question?.options.find((o) => correctIds?.includes(o.id))?.text;
+    question?.type === 'ordering' && correctIds
+      ? correctIds.map(label).join(' \u2192 ')
+      : question?.type === 'numeric' && answer != null
+        ? String(answer) + (unit ? ' ' + unit : '')
+        : acceptedAnswers?.length
+          ? acceptedAnswers[0]
+          : question?.type === 'multiselect' && correctIds
+            ? correctIds.map(label).join(', ')
+            : question?.options.find((o) => correctIds?.includes(o.id))?.text;
+
+  const yourText =
+    result.submittedText ??
+    (result.submittedOrder ? result.submittedOrder.map(label).join(' \u2192 ') : null) ??
+    (result.chosenOptionIds ? result.chosenOptionIds.map(label).join(', ') : null);
 
   return (
     <div className="flex flex-1 flex-col justify-center">
@@ -366,7 +457,9 @@ function Reveal({
           <ResultMark status={status} />
           <h1 className={'mt-4 font-display text-3xl font-extrabold ' + tone.text}>{tone.title}</h1>
 
-        {result.pointsEarned > 0 ? (
+        {result.neutral ? (
+          <p className="mt-2 text-slate-400">Polls don't score. Your streak is safe.</p>
+        ) : result.pointsEarned > 0 ? (
           <p className="mt-2 font-display text-2xl font-bold text-emerald-300">
             +{result.pointsEarned.toLocaleString()}
           </p>
@@ -383,22 +476,63 @@ function Reveal({
           </p>
         )}
 
-        {result.submittedText && (
+        {yourText && !result.neutral && (
           <p className="mt-3 text-sm text-slate-400">
-            You wrote <b className="text-slate-200">{result.submittedText}</b>
+            You {result.submittedOrder ? 'put' : result.chosenOptionIds ? 'picked' : 'wrote'}{' '}
+            <b className="text-slate-200">{yourText}</b>
           </p>
         )}
 
-        {!result.correct && correctText && (
+        {!result.correct && !result.neutral && correctText && (
           <p className="mt-4 rounded-xl bg-white/5 px-4 py-3 text-sm">
             <span className="text-slate-400">The answer was </span>
             <b className="font-semibold">{correctText}</b>
           </p>
         )}
 
-        <div className="mt-5">
-          <StreakMeter streak={result.streak} broken={!!result.streakBroken} />
-        </div>
+        {/* The teacher's "why". Shown to everyone, right or wrong - the moment
+            after a reveal is when a student is most receptive. */}
+        {explanation && (
+          <p className="mt-4 rounded-xl border border-brand-400/20 bg-brand-500/[0.08] px-4 py-3 text-left text-sm leading-relaxed text-slate-200">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-brand-300">
+              Why
+            </span>
+            {explanation}
+          </p>
+        )}
+
+        {/* A poll's whole point is seeing what the room thought. */}
+        {result.neutral && pollCounts && question && (
+          <ul className="mt-4 space-y-1.5 text-left">
+            {question.options.map((o) => {
+              const n = pollCounts[o.id] ?? 0;
+              const pct = pollTotal ? Math.round((n / pollTotal) * 100) : 0;
+              const mine = result.chosenOptionId === o.id;
+              return (
+                <li key={o.id} className="relative overflow-hidden rounded-xl bg-white/[0.05] px-3 py-2 text-sm">
+                  <span
+                    className="absolute inset-y-0 left-0 bg-brand-500/25 transition-all duration-700"
+                    style={{ width: pct + '%' }}
+                    aria-hidden
+                  />
+                  <span className="relative flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate font-medium">
+                      {o.text}
+                      {mine && <span className="ml-2 text-[11px] uppercase text-brand-300">you</span>}
+                    </span>
+                    <span className="shrink-0 text-slate-400 nums">{pct}%</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {!result.neutral && (
+          <div className="mt-5">
+            <StreakMeter streak={result.streak} broken={!!result.streakBroken} />
+          </div>
+        )}
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-white/[0.05] px-3 py-3">

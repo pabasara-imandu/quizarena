@@ -424,6 +424,7 @@ export default function HostPage() {
           reactionBurst={reactionBurst}
           strikeLimit={settings?.strikeLimit ?? 0}
           autoAdvance={!!settings?.autoAdvance}
+          showLeaderboard={settings?.showLeaderboardBetweenQuestions !== false}
           busy={busy}
           onNext={() => run('host:next')}
           onSkipTimer={() => run('host:skipTimer')}

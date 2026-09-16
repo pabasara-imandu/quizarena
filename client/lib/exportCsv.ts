@@ -35,6 +35,7 @@ const STATUS_LABEL: Record<string, string> = {
   incorrect: 'Incorrect',
   skipped: 'Skipped',
   no_answer: 'No answer',
+  answered: 'Voted',
 };
 
 const pct = (n: number) => Math.round((n ?? 0) * 100) + '%';
@@ -113,10 +114,16 @@ export function buildGradebookCsv(analytics: Analytics): string {
     const answerKey =
       q.type === 'short'
         ? (q.acceptedAnswers ?? []).join(' | ')
-        : q.options
-            .filter((o) => o.correct)
-            .map((o) => o.text)
-            .join(' | ');
+        : q.type === 'numeric'
+          ? String(q.answer ?? '') + (q.tolerance ? ' ±' + q.tolerance : '') + (q.unit ? ' ' + q.unit : '')
+          : q.type === 'ordering'
+            ? (q.correctOrder ?? []).map((id) => q.options.find((o) => o.id === id)?.text ?? id).join(' > ')
+            : q.type === 'poll'
+              ? '(poll)'
+              : q.options
+                  .filter((o) => o.correct)
+                  .map((o) => o.text)
+                  .join(' | ');
     rows.push([
       'Q' + (q.position + 1),
       q.type,
@@ -136,10 +143,9 @@ export function buildGradebookCsv(analytics: Analytics): string {
   rows.push(['Answer breakdown']);
   rows.push(['Question', 'Answer', 'Correct?', 'Times chosen', 'Share of responses']);
   for (const q of perQuestion) {
-    const entries =
-      q.type === 'short'
-        ? (q.textResponses ?? []).map((t) => ({ text: t.display, correct: t.correct, count: t.count }))
-        : q.options;
+    const entries = q.textResponses
+      ? q.textResponses.map((t) => ({ text: t.display, correct: t.correct, count: t.count }))
+      : q.options;
     for (const entry of entries) {
       rows.push([
         'Q' + (q.position + 1),
@@ -192,7 +198,7 @@ export function buildPerStudentCsv(analytics: Analytics): string {
         'Q' + (q.position + 1),
         q.text,
         cell.status === 'no_answer' ? '(no answer)' : cell.status === 'skipped' ? '(skipped)' : cell.response ?? '',
-        cell.status === 'correct' ? 'Yes' : cell.status === 'incorrect' ? 'No' : '',
+        cell.status === 'correct' ? 'Yes' : cell.status === 'incorrect' ? 'No' : cell.status === 'answered' ? 'Voted' : '',
         cell.points ?? 0,
         cell.responseMs == null ? '' : (cell.responseMs / 1000).toFixed(2),
       ]);

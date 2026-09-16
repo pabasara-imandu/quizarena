@@ -50,12 +50,21 @@ function StudentSession() {
   const [endAt, setEndAt] = useState<number | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [submittedOrder, setSubmittedOrder] = useState<string[] | null>(null);
   const [submittedText, setSubmittedText] = useState<string | null>(null);
   const [hasAnswered, setHasAnswered] = useState(false);
 
   const [result, setResult] = useState<PlayerResult | null>(null);
   const [correctIds, setCorrectIds] = useState<string[] | null>(null);
   const [acceptedAnswers, setAcceptedAnswers] = useState<string[] | null>(null);
+  const [revealExtra, setRevealExtra] = useState<{
+    answer: number | null;
+    unit: string | null;
+    explanation: string | null;
+    pollCounts: Record<string, number> | null;
+    pollTotal: number;
+  }>({ answer: null, unit: null, explanation: null, pollCounts: null, pollTotal: 0 });
   const [topThree, setTopThree] = useState<LeaderboardRow[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [myRank, setMyRank] = useState<{ rank: number; totalPlayers: number } | null>(null);
@@ -115,6 +124,13 @@ function StudentSession() {
     setQuestion(state.question ?? null);
     setCorrectIds(state.reveal?.correctOptionIds ?? null);
     setAcceptedAnswers(state.reveal?.acceptedAnswers ?? null);
+    setRevealExtra({
+      answer: state.reveal?.answer ?? null,
+      unit: state.reveal?.unit ?? null,
+      explanation: state.reveal?.explanation ?? null,
+      pollCounts: state.reveal?.neutral ? (state.reveal?.distribution ?? null) : null,
+      pollTotal: state.reveal?.answeredTotal ?? 0,
+    });
     if (state.leaderboard) setLeaderboard(state.leaderboard.top ?? []);
 
     if (state.you) {
@@ -123,6 +139,8 @@ function StudentSession() {
       setStrikes(state.you.strikes);
       setHasAnswered(!!state.you.answered);
       setSelectedId(state.you.answeredOptionId ?? null);
+      setSelectedIds(state.you.answeredOptionIds ?? []);
+      setSubmittedOrder(state.you.submittedOrder ?? null);
       setSubmittedText(state.you.submittedText ?? null);
       if (state.you.rank) setMyRank(state.you.rank);
     }
@@ -268,11 +286,14 @@ function StudentSession() {
     // Clear the previous question completely so nothing from it can bleed
     // into the next one.
     setSelectedId(null);
+    setSelectedIds([]);
+    setSubmittedOrder(null);
     setSubmittedText(null);
     setHasAnswered(false);
     setResult(null);
     setCorrectIds(null);
     setAcceptedAnswers(null);
+    setRevealExtra({ answer: null, unit: null, explanation: null, pollCounts: null, pollTotal: 0 });
   });
 
   useSocketEvent<any>('game:question', (p) => {
@@ -282,11 +303,14 @@ function StudentSession() {
     setStartAt(p.startAt);
     setEndAt(p.endAt);
     setSelectedId(null);
+    setSelectedIds([]);
+    setSubmittedOrder(null);
     setSubmittedText(null);
     setHasAnswered(false);
     setResult(null);
     setCorrectIds(null);
     setAcceptedAnswers(null);
+    setRevealExtra({ answer: null, unit: null, explanation: null, pollCounts: null, pollTotal: 0 });
   });
 
   useSocketEvent<any>('game:reveal', (p) => {
@@ -295,12 +319,21 @@ function StudentSession() {
     setAutoAdvancing(!!p.autoAdvanceAt);
     setCorrectIds(p.correctOptionIds ?? null);
     setAcceptedAnswers(p.acceptedAnswers ?? null);
+    setRevealExtra({
+      answer: p.answer ?? null,
+      unit: p.unit ?? null,
+      explanation: p.explanation ?? null,
+      pollCounts: p.neutral ? (p.distribution ?? null) : null,
+      pollTotal: p.answeredTotal ?? 0,
+    });
     setTopThree(p.topThree ?? []);
     if (p.you) {
       setResult(p.you);
       setScore(p.you.score);
       setStreak(p.you.streak ?? 0);
       if (p.you.chosenOptionId) setSelectedId(p.you.chosenOptionId);
+      if (p.you.chosenOptionIds) setSelectedIds(p.you.chosenOptionIds);
+      if (p.you.submittedOrder) setSubmittedOrder(p.you.submittedOrder);
       if (p.you.submittedText) setSubmittedText(p.you.submittedText);
     }
   });
@@ -354,13 +387,21 @@ function StudentSession() {
 
   /** One path for every kind of submission: choice, free text, and skip. */
   const submit = useCallback(
-    async (payload: { optionId?: string | null; text?: string; skipped?: boolean }) => {
+    async (payload: {
+      optionId?: string | null;
+      optionIds?: string[];
+      order?: string[];
+      text?: string;
+      skipped?: boolean;
+    }) => {
       if (hasAnswered || locked) return;
 
       // Optimistic lock: the tile or input freezes instantly, and we only roll
       // back if the server actually rejects it.
       setHasAnswered(true);
       if (payload.optionId) setSelectedId(payload.optionId);
+      if (payload.optionIds) setSelectedIds(payload.optionIds);
+      if (payload.order) setSubmittedOrder(payload.order);
       if (payload.text) setSubmittedText(payload.text);
 
       try {
@@ -369,6 +410,7 @@ function StudentSession() {
           if (res?.code === 'already_answered') return; // it did land
           setHasAnswered(false);
           setSelectedId(null);
+          setSubmittedOrder(null);
           setSubmittedText(null);
           if (res?.code === 'locked') setLocked(true);
           else if (res?.message) flashNotice(res.message, 2500);
@@ -376,6 +418,7 @@ function StudentSession() {
       } catch {
         setHasAnswered(false);
         setSelectedId(null);
+        setSubmittedOrder(null);
         setSubmittedText(null);
         flashNotice('That did not reach the server. Try again.', 2500);
       }
@@ -443,6 +486,13 @@ function StudentSession() {
           submittedText={submittedText}
           hasAnswered={hasAnswered}
           onSelect={(optionId) => submit({ optionId })}
+          selectedIds={selectedIds}
+          submittedOrder={submittedOrder}
+          onToggle={(id) =>
+            setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
+          }
+          onSubmitMulti={() => submit({ optionIds: selectedIds })}
+          onSubmitOrder={(order) => submit({ order })}
           onSubmitText={(text) => submit({ text })}
           onSkip={() => submit({ skipped: true, optionId: null })}
           allowSkip={settings.allowSkip !== false}
@@ -450,6 +500,11 @@ function StudentSession() {
           result={result}
           correctIds={correctIds}
           acceptedAnswers={acceptedAnswers}
+          answer={revealExtra.answer}
+          unit={revealExtra.unit}
+          explanation={revealExtra.explanation}
+          pollCounts={revealExtra.pollCounts}
+          pollTotal={revealExtra.pollTotal}
           topThree={topThree}
           leaderboard={leaderboard}
           myRank={myRank}

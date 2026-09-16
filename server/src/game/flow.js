@@ -261,8 +261,18 @@ export function endQuestion(io, room) {
     emitToPlayer(io, player, 'game:reveal', {
       index: room.currentIndex,
       questionType: hostSummary.type,
+      neutral: hostSummary.neutral,
       correctOptionIds: hostSummary.correctOptionIds,
       acceptedAnswers: hostSummary.acceptedAnswers,
+      answer: hostSummary.answer,
+      tolerance: hostSummary.tolerance,
+      unit: hostSummary.unit,
+      // The teacher's "why". Sent only now, with the answer, never before.
+      explanation: hostSummary.explanation,
+      // A poll's whole point is seeing what the room thought, so students get
+      // the distribution too. Graded questions keep it on the host screen.
+      distribution: hostSummary.neutral ? hostSummary.distribution : undefined,
+      answeredTotal: hostSummary.neutral ? hostSummary.answeredTotal : undefined,
       you: results.get(player.id) ?? null,
       topThree: board.top.slice(0, 3),
       autoAdvanceAt: room.settings.autoAdvance ? Date.now() + AUTO_REVEAL_MS : null,
@@ -356,6 +366,19 @@ export function clearReactions(pin) {
  * Everything a client needs to render the right screen after a reconnect,
  * without replaying the events it missed.
  */
+/** A poll's counts, for a student who rejoins mid-reveal and missed the broadcast. */
+function pollTally(room) {
+  const bucket = room.currentAnswers;
+  const distribution = {};
+  let answeredTotal = 0;
+  for (const r of bucket?.values() ?? []) {
+    if (r.skipped || !r.optionId) continue;
+    distribution[r.optionId] = (distribution[r.optionId] || 0) + 1;
+    answeredTotal++;
+  }
+  return { distribution, answeredTotal };
+}
+
 export function snapshotFor(room, player = null) {
   const base = {
     pin: room.pin,
@@ -384,8 +407,16 @@ export function snapshotFor(room, player = null) {
     reveal:
       room.phase === PHASE.REVEAL && q
         ? {
-            correctOptionIds: q.options.filter((o) => o.correct).map((o) => o.id),
+            correctOptionIds:
+              q.type === 'ordering'
+                ? q.options.map((o) => o.id)
+                : q.options.filter((o) => o.correct).map((o) => o.id),
             acceptedAnswers: q.type === 'short' ? q.acceptedAnswers : null,
+            answer: q.type === 'numeric' ? q.answer : null,
+            unit: q.type === 'numeric' ? q.unit : null,
+            explanation: q.explanation,
+            neutral: q.type === 'poll',
+            ...(q.type === 'poll' ? pollTally(room) : {}),
           }
         : null,
     leaderboard: room.phase === PHASE.LEADERBOARD ? room.leaderboard(10) : null,
@@ -397,6 +428,8 @@ export function snapshotFor(room, player = null) {
       strikes: player.strikes,
       answered: !!record,
       answeredOptionId: record?.optionId ?? null,
+      answeredOptionIds: record?.optionIds ?? null,
+      submittedOrder: record?.order ?? null,
       submittedText: record?.text ?? null,
       skipped: !!record?.skipped,
       rank: room.rankOf(player.id),

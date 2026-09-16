@@ -2,7 +2,7 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-# Optional deps (redis, @anthropic-ai/sdk) are included: they are what the
+# Optional deps (redis, @google/genai) are included: they are what the
 # Redis adapter and the quiz generator need when their env vars are set.
 RUN npm ci --omit=dev
 

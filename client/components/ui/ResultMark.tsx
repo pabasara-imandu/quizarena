@@ -1,6 +1,6 @@
 'use client';
 
-export type ResultStatus = 'correct' | 'incorrect' | 'skipped' | 'timeout';
+export type ResultStatus = 'correct' | 'incorrect' | 'skipped' | 'timeout' | 'voted';
 
 /** Everything the reveal needs to dress itself, keyed off one status. */
 export const RESULT_TONE: Record<
@@ -38,6 +38,15 @@ export const RESULT_TONE: Record<
     ring: 'border-white/10',
     title: 'Time ran out',
     text: 'text-slate-300',
+  },
+  // A poll: not a verdict at all, so brand-coloured rather than green or red.
+  voted: {
+    stroke: '#a78bfa',
+    wash: 'rgba(124,109,255,0.38)',
+    tint: 'bg-brand-500/[0.08]',
+    ring: 'border-brand-400/30',
+    title: 'Thanks for voting',
+    text: 'text-brand-200',
   },
 };
 
@@ -122,6 +131,22 @@ export function ResultMark({ status, size = 92 }: { status: ResultStatus; size?:
             style={{ ['--dur' as string]: '220ms', ['--delay' as string]: '620ms' }}
           />
         </>
+      )}
+
+      {status === 'voted' && (
+        // A raised hand: three fingers and a thumb, drawn as one stroke.
+        <path
+          d="M20 33 V22 M25 33 V18 M30 33 V20 M20 28 L16 24 M20 33 Q25 37 30 33"
+          fill="none"
+          stroke={stroke}
+          strokeWidth="3.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray="70"
+          strokeDashoffset="70"
+          className="mark-stroke"
+          style={{ ['--dur' as string]: '420ms', ['--delay' as string]: '460ms' }}
+        />
       )}
 
       {status === 'skipped' && (
