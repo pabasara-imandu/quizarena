@@ -12,8 +12,13 @@
  * must exist in English, every placeholder in the English must appear in the
  * translation, and any English key with no translation is listed so it can
  * be asked for. The dictionary is written to lib/i18n/<code>.ts.
+ *
+ * An existing lib/i18n/<code>.ts is the starting point, so a file holding
+ * only some keys - the "Export edits" download from the admin page, say -
+ * updates those and leaves the rest as they were. That is how an edit made
+ * on the live site becomes part of the code for good.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,7 +39,20 @@ for (const m of body.matchAll(entry)) {
 
 const placeholders = (s) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
+// Start from what the dictionary already says, if it exists.
 const merged = new Map();
+const existing = join(here, '..', 'lib', 'i18n', `${code}.ts`);
+if (existsSync(existing)) {
+  const current = readFileSync(existing, 'utf8');
+  const start = current.indexOf(`export const ${code}`);
+  if (start >= 0) {
+    for (const m of current.slice(start).matchAll(entry)) {
+      const key = m[1];
+      if (english.has(key)) merged.set(key, (m[2] ?? m[3]).replace(/\\'/g, "'").replace(/\\"/g, '"'));
+    }
+  }
+}
+const before = merged.size;
 const problems = [];
 for (const file of files) {
   const raw = readFileSync(file, 'utf8');
@@ -92,7 +110,7 @@ lines.push('};', '');
 const out = join(here, '..', 'lib', 'i18n', `${code}.ts`);
 writeFileSync(out, lines.join('\n'));
 
-console.log(`${merged.size} of ${english.size} strings -> ${out}`);
+console.log(`${merged.size} of ${english.size} strings -> ${out}` + (before ? ` (${before} were already there)` : ''));
 if (missing.length) {
   console.log(`\n${missing.length} still English (ask for these next):`);
   for (const k of missing) console.log('  ' + k + '  =  ' + JSON.stringify(english.get(k)));

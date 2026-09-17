@@ -9,7 +9,8 @@ import { generateQuiz } from '../game/generateQuiz.js';
 import { buildMatrixCsv } from '../game/exportCsv.js';
 import { ValidationError } from '../game/quizSchema.js';
 import { config } from '../config.js';
-import { signInEnabled } from '../auth/google.js';
+import { adminEmails, isAdminEmail } from '../auth/admins.js';
+import { signInEnabled, verifyIdToken } from '../auth/google.js';
 
 export const api = Router();
 
@@ -86,13 +87,19 @@ api.get('/sample-quiz', (_req, res) => res.json(sampleQuiz));
 /* -------------------------------------------------------------------------- */
 
 /**
- * Shared secret across the fleet, checked in constant time.
+ * Who is asking, and are they allowed.
  *
- * With no ADMIN_TOKEN set the endpoint is closed rather than open: a dashboard
- * listing every live classroom in the country is not something to leave
- * unlocked because someone forgot an environment variable.
+ * The admin page signs in with Google and sends the ID token as a bearer;
+ * the token is verified against Google and the email checked against the
+ * admin list. Nothing is stored - every request proves itself afresh, and
+ * the token expires on its own within the hour.
+ *
+ * The older shared ADMIN_TOKEN still works for scripts and curl, checked in
+ * constant time. With neither an admin list nor a token this endpoint is
+ * closed rather than open: a dashboard listing every live classroom in the
+ * country is not something to leave unlocked because a file was forgotten.
  */
-function adminOk(req) {
+function tokenOk(req) {
   if (!config.adminToken) return false;
   const given = String(req.get('x-admin-token') || req.query.token || '');
   if (given.length !== config.adminToken.length) return false;
@@ -101,6 +108,52 @@ function adminOk(req) {
   return diff === 0;
 }
 
+const bearerOf = (req) => {
+  const m = /^Bearer\s+(.+)$/i.exec(String(req.get('authorization') || ''));
+  return m ? m[1].trim() : '';
+};
+
+/**
+ * Local development only. With ADMIN_DEV_BYPASS_EMAIL set in this server's
+ * .env, a request carrying that same email in x-dev-admin-email counts as
+ * that admin, so the admin page can be worked on without a Google popup.
+ * Never set it on a real deployment.
+ */
+function devBypass(req) {
+  const allowed = (process.env.ADMIN_DEV_BYPASS_EMAIL || '').trim().toLowerCase();
+  if (!allowed) return null;
+  const given = String(req.get('x-dev-admin-email') || '').trim().toLowerCase();
+  return given && given === allowed ? { email: allowed, name: 'Dev admin', via: 'dev' } : null;
+}
+
+/** Resolves to `{ email, name, via }` for an admin, or a reason string. */
+async function whoIsAdmin(req) {
+  if (tokenOk(req)) return { email: null, name: 'Shared token', via: 'token' };
+  const dev = devBypass(req);
+  if (dev) return dev;
+
+  const idToken = bearerOf(req);
+  if (!idToken) {
+    return adminEmails.length || config.adminToken
+      ? 'Sign in with Google to open the admin view.'
+      : 'This server has no admin list (admins.json or ADMIN_EMAILS), so the admin view is closed.';
+  }
+  if (!signInEnabled()) return 'This server has no GOOGLE_CLIENT_ID, so Google sign-in cannot be checked here.';
+  const claims = await verifyIdToken(idToken);
+  if (!claims) return 'That Google sign-in could not be verified. Sign in again.';
+  if (!isAdminEmail(claims.email)) {
+    return claims.email + ' is not on the admin list. Add it to admins.json (or ADMIN_EMAILS) and redeploy.';
+  }
+  return { email: claims.email, name: claims.name || claims.email, via: 'google' };
+}
+
+/** Lets the admin page confirm access before it fans out to the fleet. */
+api.get('/admin/whoami', async (req, res) => {
+  const who = await whoIsAdmin(req);
+  if (typeof who === 'string') return res.status(403).json({ ok: false, error: who });
+  res.json({ ok: true, email: who.email, name: who.name, via: who.via, label: config.serverLabel });
+});
+
 /**
  * Every live session on this instance.
  *
@@ -108,14 +161,9 @@ function adminOk(req) {
  * an operations view needs to know that a room is busy and healthy, not who is
  * in it or what they said.
  */
-api.get('/admin/sessions', (req, res) => {
-  if (!adminOk(req)) {
-    return res.status(403).json({
-      error: config.adminToken
-        ? 'Admin credentials rejected.'
-        : 'This server has no ADMIN_TOKEN set, so the admin view is closed.',
-    });
-  }
+api.get('/admin/sessions', async (req, res) => {
+  const who = await whoIsAdmin(req);
+  if (typeof who === 'string') return res.status(403).json({ error: who });
 
   const now = Date.now();
   const sessions = [...roomStore.rooms.values()].map((room) => ({

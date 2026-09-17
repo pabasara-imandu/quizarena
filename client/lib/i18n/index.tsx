@@ -3,6 +3,7 @@
 import {
   Fragment,
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -11,6 +12,7 @@ import {
 } from 'react';
 import { en, type MessageKey } from './en';
 import { si } from './si';
+import { isOverrideLang, sanitizeOverrides, type OverrideLang, type Overrides } from './overrides';
 
 /**
  * The app's languages.
@@ -25,6 +27,57 @@ export type Lang = 'en' | 'si' | 'ta';
 type Dict = Partial<Record<MessageKey, string>>;
 
 const DICTS: Record<Lang, Dict> = { en, si, ta: {} };
+
+/** The shipped dictionary for a language, before any edits. */
+export function builtInDictionary(lang: Lang): Dict {
+  return DICTS[lang];
+}
+
+/**
+ * Edits made from the admin page, laid over the built-in dictionaries.
+ *
+ * Fetched once per visit from this site's own /api/i18n and kept in
+ * localStorage, so the second visit paints with them immediately and a visit
+ * with no network still has the last ones. Everything passes through
+ * `sanitizeOverrides` on the way in - what is stored can never break a page.
+ */
+export type AllOverrides = Partial<Record<OverrideLang, Overrides>>;
+
+const OVERRIDES_KEY = 'quizarena.i18n.v1';
+const OVERRIDES_TIMEOUT_MS = 6000;
+
+function readCachedOverrides(): AllOverrides {
+  try {
+    const raw = localStorage.getItem(OVERRIDES_KEY);
+    if (!raw) return {};
+    return sanitizeAll(JSON.parse(raw));
+  } catch {
+    return {};
+  }
+}
+
+function sanitizeAll(raw: unknown): AllOverrides {
+  const out: AllOverrides = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [lang, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (isOverrideLang(lang)) out[lang] = sanitizeOverrides(value);
+  }
+  return out;
+}
+
+export async function fetchOverrides(): Promise<AllOverrides | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), OVERRIDES_TIMEOUT_MS);
+  try {
+    const res = await fetch('/api/i18n', { signal: controller.signal, cache: 'no-store' });
+    if (!res.ok) return null;
+    return sanitizeAll(await res.json());
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /** Languages that actually have words in them, in menu order. Native names only. */
 export const LANGUAGES: { code: Lang; name: string }[] = (
@@ -70,8 +123,8 @@ function englishOrdinal(n: number) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-export function makeTranslator(lang: Lang): Translator {
-  const dict = DICTS[lang];
+export function makeTranslator(lang: Lang, overrides?: Overrides): Translator {
+  const dict: Dict = overrides && Object.keys(overrides).length ? { ...DICTS[lang], ...overrides } : DICTS[lang];
   const lookup = (key: string): string =>
     (dict as Record<string, string>)[key] ?? (en as Record<string, string>)[key] ?? key;
 
@@ -109,12 +162,18 @@ interface LanguageContext {
   lang: Lang;
   setLang: (lang: Lang) => void;
   t: Translator;
+  /** Edits from the admin page, by language, as currently applied. */
+  overrides: AllOverrides;
+  /** Re-read the edits from the server - the admin page calls this after saving. */
+  reloadOverrides: () => Promise<void>;
 }
 
 const Ctx = createContext<LanguageContext>({
   lang: 'en',
   setLang: () => {},
   t: makeTranslator('en'),
+  overrides: {},
+  reloadOverrides: async () => {},
 });
 
 function isAvailable(code: string | null | undefined): code is Lang {
@@ -141,7 +200,26 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // choice - reading storage during render would make the two disagree and
   // React would throw the page away on hydration.
   const [lang, setLangState] = useState<Lang>('en');
-  useEffect(() => setLangState(detect()), []);
+  const [overrides, setOverrides] = useState<AllOverrides>({});
+
+  const reloadOverrides = useCallback(async () => {
+    const fresh = await fetchOverrides();
+    if (!fresh) return;
+    setOverrides(fresh);
+    try {
+      localStorage.setItem(OVERRIDES_KEY, JSON.stringify(fresh));
+    } catch {
+      /* no cache - next visit fetches again */
+    }
+  }, []);
+
+  useEffect(() => {
+    setLangState(detect());
+    // Last visit's edits first, so nothing waits on the network; then the
+    // current ones. A failed fetch changes nothing.
+    setOverrides(readCachedOverrides());
+    void reloadOverrides();
+  }, [reloadOverrides]);
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -150,7 +228,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const value = useMemo<LanguageContext>(
     () => ({
       lang,
-      t: makeTranslator(lang),
+      t: makeTranslator(lang, isOverrideLang(lang) ? overrides[lang] : undefined),
+      overrides,
+      reloadOverrides,
       setLang: (next) => {
         setLangState(next);
         try {
@@ -160,7 +240,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         }
       },
     }),
-    [lang]
+    [lang, overrides, reloadOverrides]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

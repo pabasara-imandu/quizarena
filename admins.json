@@ -1,0 +1,6 @@
+{
+  "_comment": "Google accounts allowed into /admin - the fleet view and the translation editor. One email per entry; capitals do not matter. Edit, commit, and both the servers and the site pick it up on their next deploy. To keep the list out of the public repo, set ADMIN_EMAILS (comma-separated) on Render and Netlify instead; it wins over this file.",
+  "admins": [
+    "pabasaraimadu31@gmail.com"
+  ]
+}

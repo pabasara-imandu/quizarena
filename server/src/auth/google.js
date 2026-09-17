@@ -31,26 +31,37 @@ export function signInEnabled() {
  * stop a teacher from running a lesson.
  */
 export async function verifyHostIdToken(idToken) {
-  if (!signInEnabled() || typeof idToken !== 'string' || !idToken) return null;
+  const claims = await verifyIdToken(idToken);
+  if (!claims) return null;
 
+  if (config.googleAllowedDomains.length) {
+    const domain = String(claims.email || '').split('@')[1]?.toLowerCase();
+    if (!domain || !config.googleAllowedDomains.includes(domain)) return null;
+  }
+
+  return {
+    verified: true,
+    sub: claims.sub,
+    email: claims.email,
+    name: claims.name || claims.email,
+    picture: claims.picture || null,
+  };
+}
+
+/**
+ * The verification itself: Google's signature, our audience, a verified
+ * email. Returns the claims or null - the same null for every failure, so a
+ * caller cannot tell a forged token from an expired one and neither can
+ * anyone probing the endpoint.
+ */
+export async function verifyIdToken(idToken) {
+  if (!signInEnabled() || typeof idToken !== 'string' || !idToken) return null;
   try {
     client ??= new OAuth2Client(config.googleClientId);
     const ticket = await client.verifyIdToken({ idToken, audience: config.googleClientId });
     const claims = ticket.getPayload();
-    if (!claims?.sub || !claims.email_verified) return null;
-
-    if (config.googleAllowedDomains.length) {
-      const domain = String(claims.email || '').split('@')[1]?.toLowerCase();
-      if (!domain || !config.googleAllowedDomains.includes(domain)) return null;
-    }
-
-    return {
-      verified: true,
-      sub: claims.sub,
-      email: claims.email,
-      name: claims.name || claims.email,
-      picture: claims.picture || null,
-    };
+    if (!claims?.sub || !claims.email_verified || !claims.email) return null;
+    return claims;
   } catch {
     return null;
   }

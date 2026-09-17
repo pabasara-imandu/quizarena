@@ -221,7 +221,7 @@ export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdi
         <div className="flex flex-wrap items-center gap-3">
           <input
             aria-label={t('creator.titleAria')}
-            className="min-w-0 flex-1 rounded-xl border border-transparent bg-transparent px-2 py-1.5 font-display text-xl font-bold text-slate-100 transition placeholder:text-slate-600 hover:border-white/10 focus:border-brand-500/60 focus:bg-ink-900 focus:outline-none sm:text-2xl"
+            className="min-w-0 flex-1 basis-full rounded-xl border border-transparent bg-transparent px-2 py-1.5 font-display text-xl font-bold text-slate-100 transition placeholder:text-slate-600 hover:border-white/10 focus:border-brand-500/60 focus:bg-ink-900 focus:outline-none sm:basis-auto sm:text-2xl"
             value={title}
             maxLength={120}
             placeholder={t('creator.titlePlaceholder')}

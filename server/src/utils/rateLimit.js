@@ -46,14 +46,30 @@ function stripInvisible(input) {
   return out;
 }
 
-export function sanitizeNickname(raw, maxLength = 18) {
+/**
+ * Split into what a reader sees as letters.
+ *
+ * A Sinhala or Tamil letter is often several code units - a consonant, a
+ * vowel sign, a joiner - and cutting between them leaves a broken glyph on
+ * the leaderboard. Lengths here are counted and cut in graphemes, so "18
+ * letters" means eighteen things a person would count.
+ */
+const segmenter = typeof Intl.Segmenter === 'function' ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+
+export function graphemes(text) {
+  if (segmenter) return [...segmenter.segment(text)].map((s) => s.segment);
+  return [...text];
+}
+
+export function sanitizeNickname(raw, maxLength = 24) {
   if (typeof raw !== 'string') return null;
   const cleaned = stripInvisible(raw)
     .replace(/[<>]/g, '')
     .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, maxLength);
-  return cleaned.length >= 2 ? cleaned : null;
+    .trim();
+  const letters = graphemes(cleaned);
+  const cut = letters.slice(0, maxLength).join('').trim();
+  return graphemes(cut).length >= 2 ? cut : null;
 }
 
 export function sanitizeText(raw, maxLength = 300) {

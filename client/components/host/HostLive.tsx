@@ -130,7 +130,7 @@ export function HostLive({
     <>
       {/* Clears the fixed control bar so the last row of the leaderboard and
           the End quiz button are never stuck underneath each other. */}
-      <div className="grid gap-5 pb-24 lg:grid-cols-[1fr_320px] lg:items-start">
+      <div className="grid gap-5 pb-36 sm:pb-24 lg:grid-cols-[1fr_320px] lg:items-start">
       <ReactionOverlay bursts={reactionBurst} />
 
       {/* -------------------------------------------------------- main stage */}
@@ -377,7 +377,10 @@ export function HostLive({
           at exactly the moment the host was reading the leaderboard and
           reaching for it. Fixed, it is always under the thumb. */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.07] bg-ink-950/92 px-4 py-3 backdrop-blur-xl sm:px-6">
-        <div className="mx-auto flex max-w-6xl items-center gap-2">
+        {/* Wraps: when a language's labels do not fit beside each other on
+            a phone, End drops to a second row rather than any label being
+            cut to a sliver. In English on a laptop nothing moves. */}
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2">
           {/* Auto-advance does not take the button away - a host who wants to
               move on now should not have to wait out a timer they set for the
               class's benefit. */}
@@ -386,26 +389,30 @@ export function HostLive({
               {t('live.auto')}
             </span>
           )}
+          {/* On a phone the secondary button yields first: in a language
+              where "skip the timer" runs long it was squeezing the primary
+              action down to a sliver. Both may truncate; the primary gets
+              the larger share and is never the one that loses. */}
           {phase === 'question' && (
             <button
-              className="btn-secondary shrink-0"
+              className="btn-secondary min-w-0 grow basis-auto sm:grow-0"
               type="button"
               onClick={onSkipTimer}
               disabled={busy}
             >
-              <span className="sm:hidden">{t('live.skipTimer')}</span>
+              <span className="block truncate sm:hidden">{t('live.skipTimer')}</span>
               <span className="hidden sm:inline">{t('live.skipTheTimer')}</span>
             </button>
           )}
           {/* Grows to fill a phone's width: the one control the host reaches
               for under time pressure should be the easiest thing to hit. */}
           <button
-            className="btn-primary btn-lg min-w-0 flex-1 sm:flex-none"
+            className="btn-primary btn-lg min-w-0 grow-[1.6] basis-auto sm:grow-0"
             type="button"
             onClick={onNext}
             disabled={busy}
           >
-            <span className="truncate">{nextLabel}</span>
+            <span className="block truncate">{nextLabel}</span>
           </button>
           <button className="btn-danger ml-auto shrink-0" type="button" onClick={onEnd} disabled={busy}>
             <span className="sm:hidden">{t('live.end')}</span>

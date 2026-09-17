@@ -17,6 +17,17 @@ key it lacks falls back to English, so a partial dictionary is safe. The
 language menu appears automatically once a dictionary has any strings in it;
 the choice is per device, remembered, and defaults to the phone's own language.
 
+## Editing words on the live site
+
+`/admin` → Translations shows every key with its English and its translation and
+lets an admin change it. Edits are saved through `app/api/i18n/[lang]` into
+Netlify Blobs (a JSON file under `client/.data/` when running locally) and laid
+over the built-in dictionary at runtime by `LanguageProvider`. Every entry is
+checked by `overrides.ts` both when saved and when read, so nothing stored can
+break a page. **Export edits** on that page, then
+`node scripts/translation-import.mjs si edits.json`, makes them permanent in
+`si.ts`.
+
 ## Adding a language
 
 1. `node scripts/translation-prompt.mjs Tamil` writes two prompt files in

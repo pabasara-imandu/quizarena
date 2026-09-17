@@ -57,5 +57,6 @@ export const config = {
   // Countdown shown before the first question / between questions
   questionLeadInMs: 3000,
   maxPlayersPerRoom: Number(process.env.MAX_PLAYERS || 500),
-  maxNicknameLength: 18,
+  /** In letters as a reader counts them, not code units - see sanitizeNickname. */
+  maxNicknameLength: 24,
 };

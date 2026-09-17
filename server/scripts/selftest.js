@@ -17,7 +17,8 @@ import { api } from '../src/routes/api.js';
 import { generatePin, serverIndexForPin } from '../src/utils/pin.js';
 import { roomStore } from '../src/state/roomStore.js';
 import { parseQuizWorkbook } from '../src/game/importQuiz.js';
-import { sanitizeText } from '../src/utils/rateLimit.js';
+import { graphemes, sanitizeNickname, sanitizeText } from '../src/utils/rateLimit.js';
+import { _parseAdminList } from '../src/auth/admins.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -979,6 +980,58 @@ test('PIN ranges never overlap between servers', () => {
   }
 });
 
+
+console.log('\nadmin access');
+
+test('the admin list is lowercased, deduplicated, and ignores anything that is not an email', () => {
+  assert.deepEqual(
+    _parseAdminList(' Teacher@School.LK, teacher@school.lk\nict@acicts.lk, not-an-email, '),
+    ['teacher@school.lk', 'ict@acicts.lk']
+  );
+  assert.deepEqual(_parseAdminList(''), []);
+  assert.deepEqual(_parseAdminList(undefined), []);
+});
+
+await asyncTest('the admin endpoints are closed to a request with no sign-in', async () => {
+  const app = express();
+  app.use('/api', api);
+  const server = app.listen(0);
+  await new Promise((r) => server.once('listening', r));
+  const base = 'http://127.0.0.1:' + server.address().port;
+  try {
+    for (const path of ['/api/admin/whoami', '/api/admin/sessions']) {
+      const res = await fetch(base + path);
+      assert.equal(res.status, 403, path + ' must refuse');
+      const body = await res.json();
+      assert.match(body.error, /Sign in with Google|admin list/, 'and say what would open it');
+    }
+    // A made-up bearer is refused the same way, and never leaks why.
+    const res = await fetch(base + '/api/admin/sessions', { headers: { authorization: 'Bearer not.a.token' } });
+    assert.equal(res.status, 403);
+    // A stale shared token is not a key either.
+    const stale = await fetch(base + '/api/admin/sessions', { headers: { 'x-admin-token': 'wrong' } });
+    assert.equal(stale.status, 403);
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});
+
+console.log('\nnicknames in any script');
+
+test('a Sinhala nickname survives whole', () => {
+  const name = 'ශ්‍රී ලංකා';
+  assert.equal(sanitizeNickname(name), name);
+});
+
+test('a long name is cut between letters, never through one', () => {
+  // Ten graphemes of a Sinhala name: the cut must land after a whole letter,
+  // so the last visible glyph is intact rather than a bare vowel sign.
+  const cut = sanitizeNickname('ප්‍රසන්න විජේසිංහ ගුණවර්ධන', 10);
+  assert.equal(graphemes(cut).length, 10);
+  assert.ok(!/[\u0dca-\u0ddf]$/.test(cut) || cut.endsWith('්'), 'does not end mid-letter');
+  assert.equal(sanitizeNickname('ab', 1), null, 'one letter is not a name');
+  assert.equal(sanitizeNickname('අබ'), 'අබ', 'two Sinhala letters are');
+});
 
 console.log('\nimage headers');
 

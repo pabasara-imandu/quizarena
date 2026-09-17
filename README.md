@@ -230,6 +230,10 @@ Nothing is shared between the servers: no database, no Redis, no directory, no c
 free instances run four times as many simultaneous classes. Set `NEXT_PUBLIC_SERVER_URLS` on the
 client and watch it from `/admin`. Full walkthrough in `DEPLOY.md`.
 
+`/admin` is for the Google accounts listed in `admins.json` (or `ADMIN_EMAILS`). Besides
+the fleet view it has a **translation editor**: every string in Sinhala, editable, saved
+for everyone within a minute. See `client/lib/i18n/README.md`.
+
 **One bigger process (paid).** Set `REDIS_URL` (the Redis adapter attaches automatically) and put
 **sticky sessions on the PIN** at the load balancer, because rooms still live in one process's
 memory. Persist `buildAnalytics()` output if you want history — do not put the hot loop behind a

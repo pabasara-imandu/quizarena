@@ -129,8 +129,11 @@ body {
   }
 
   /* Segmented control - replaces stacks of competing panels with one at a time. */
+  /* Wraps rather than overflows: five tabs in a wordier language do not fit
+     one row on a phone, and a control that runs off the screen is worse than
+     one that takes two rows. */
   .segmented {
-    @apply inline-flex gap-1 rounded-xl bg-white/[0.05] p-1;
+    @apply inline-flex flex-wrap gap-1 rounded-xl bg-white/[0.05] p-1;
   }
   .segmented-item {
     @apply rounded-lg px-3.5 py-1.5 text-[13px] font-semibold text-slate-400 transition
@@ -267,4 +270,18 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ------------------------------------------------------------- Sinhala */
+/* Letter-spacing pulls a vowel sign away from its consonant, and the
+   script's ascenders and descenders need more room than Latin - so the
+   tracked, tight-leaded styles built for English relax whenever the page
+   is in Sinhala. Digits (.nums) keep their metrics whatever the language. */
+html:lang(si) .eyebrow:not(.nums),
+html:lang(si) .uppercase:not(.nums),
+html:lang(si) [class*='tracking-']:not(.nums) {
+  letter-spacing: 0;
+}
+html:lang(si) :is(.leading-none, .leading-tight, .leading-snug):not(.nums) {
+  line-height: 1.4;
 }

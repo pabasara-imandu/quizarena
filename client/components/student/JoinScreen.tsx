@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { findServerForPin } from '@/lib/servers';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { useT } from '@/lib/i18n';
+import { graphemeCount } from '@/lib/text';
 
 
 interface RoomPreview {
@@ -68,7 +69,7 @@ export function JoinScreen({
     };
   }, [pin]);
 
-  const ready = pin.length === 6 && nickname.trim().length >= 2 && !busy;
+  const ready = pin.length === 6 && graphemeCount(nickname.trim()) >= 2 && !busy;
   const found = preview?.found && preview.acceptingJoins && !preview.full;
 
   return (
@@ -134,7 +135,9 @@ export function JoinScreen({
             id="nickname"
             ref={nicknameRef}
             className="field py-3.5 text-center text-lg"
-            maxLength={18}
+            // Code units, not letters: a Sinhala name needs two or three per
+            // letter. The server cuts at 24 letters whatever arrives.
+            maxLength={40}
             autoComplete="off"
             placeholder={t('join.nicknamePlaceholder')}
             value={nickname}

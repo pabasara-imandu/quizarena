@@ -24,3 +24,6 @@ Thumbs.db
 # editor
 .vscode/
 .idea/
+
+# translation edits saved by the local admin page (Netlify Blobs in production)
+.data/
