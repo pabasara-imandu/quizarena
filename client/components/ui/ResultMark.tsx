@@ -1,5 +1,7 @@
 'use client';
 
+import { useT } from '@/lib/i18n';
+
 export type ResultStatus = 'correct' | 'incorrect' | 'skipped' | 'timeout' | 'voted';
 
 /** Everything the reveal needs to dress itself, keyed off one status. */
@@ -64,6 +66,7 @@ const RING = 151;
  * platform.
  */
 export function ResultMark({ status, size = 92 }: { status: ResultStatus; size?: number }) {
+  const t = useT();
   const { stroke } = RESULT_TONE[status];
 
   return (
@@ -73,7 +76,7 @@ export function ResultMark({ status, size = 92 }: { status: ResultStatus; size?:
       height={size}
       className="mx-auto block"
       role="img"
-      aria-label={RESULT_TONE[status].title}
+      aria-label={t(('result.' + status) as 'result.correct')}
       style={{ filter: 'drop-shadow(0 0 14px ' + stroke + '55)' }}
     >
       <circle

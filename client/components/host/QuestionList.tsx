@@ -1,16 +1,7 @@
 'use client';
 
 import type { Question } from '@/lib/types';
-
-const TYPE_LABEL: Record<Question['type'], string> = {
-  multiple: 'MC',
-  multiselect: 'Multi',
-  truefalse: 'T/F',
-  short: 'Txt',
-  numeric: '123',
-  ordering: 'Order',
-  poll: 'Poll',
-};
+import { useT } from '@/lib/i18n';
 
 const TYPE_TONE: Record<Question['type'], string> = {
   multiple: 'bg-brand-500/15 text-brand-300',
@@ -58,10 +49,11 @@ export function QuestionList({
   onDelete: (index: number) => void;
   onAdd: () => void;
 }) {
+  const t = useT();
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="mb-3 flex items-baseline gap-2 px-1">
-        <span className="eyebrow">Questions</span>
+        <span className="eyebrow">{t('rail.questions')}</span>
         <span className="ml-auto text-sm font-semibold text-slate-500 nums">{questions.length}</span>
       </div>
 
@@ -102,7 +94,7 @@ export function QuestionList({
                         (q.text.trim() ? 'text-slate-200' : 'italic text-slate-600')
                       }
                     >
-                      {q.text.trim() || 'Untitled question'}
+                      {q.text.trim() || t('rail.untitled')}
                     </span>
                     <span className="mt-1 flex items-center gap-1.5">
                       <span
@@ -110,7 +102,7 @@ export function QuestionList({
                           'rounded px-1.5 py-0.5 text-[10px] font-bold ' + TYPE_TONE[q.type]
                         }
                       >
-                        {TYPE_LABEL[q.type]}
+                        {t(('rail.type.' + q.type) as 'rail.type.multiple')}
                       </span>
                       <span className="text-[11px] text-slate-500 nums">
                         {q.timeLimitSec}s · {q.points}
@@ -118,7 +110,7 @@ export function QuestionList({
                       {needsWork && (
                         <span
                           className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400"
-                          title="Needs text and an answer"
+                          title={t('rail.needsWork')}
                         />
                       )}
                     </span>
@@ -141,7 +133,7 @@ export function QuestionList({
                     type="button"
                     onClick={() => onMove(i, -1)}
                     disabled={i === 0}
-                    aria-label={'Move question ' + (i + 1) + ' up'}
+                    aria-label={t('rail.moveUp', { n: i + 1 })}
                     className="rounded px-2 py-0.5 text-[10px] leading-none text-slate-500 transition hover:text-slate-100 disabled:opacity-20"
                   >
                     ▲
@@ -150,7 +142,7 @@ export function QuestionList({
                     type="button"
                     onClick={() => onMove(i, 1)}
                     disabled={i === questions.length - 1}
-                    aria-label={'Move question ' + (i + 1) + ' down'}
+                    aria-label={t('rail.moveDown', { n: i + 1 })}
                     className="rounded px-2 py-0.5 text-[10px] leading-none text-slate-500 transition hover:text-slate-100 disabled:opacity-20"
                   >
                     ▼
@@ -161,7 +153,7 @@ export function QuestionList({
                   type="button"
                   onClick={() => onDelete(i)}
                   disabled={questions.length === 1}
-                  aria-label={'Delete question ' + (i + 1)}
+                  aria-label={t('rail.delete', { n: i + 1 })}
                   className={
                     'shrink-0 rounded px-2 py-1 text-xs text-slate-600 transition hover:text-rose-300 disabled:opacity-0 ' +
                     (active
@@ -185,7 +177,7 @@ export function QuestionList({
         onClick={onAdd}
         className="mt-3 w-full rounded-xl border border-dashed border-white/[0.12] px-3 py-2.5 text-[13px] font-semibold text-slate-400 transition hover:border-brand-500/50 hover:bg-brand-500/10 hover:text-brand-200"
       >
-        + Add a question
+        {t('rail.add')}
       </button>
     </div>
   );

@@ -1,12 +1,19 @@
+'use client';
+
 import Link from 'next/link';
 import { SocietyLogo } from '@/components/ui/SocietyLogo';
 import { Tilt3D } from '@/components/ui/Tilt3D';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
+import { useT } from '@/lib/i18n';
 
 export default function HomePage() {
+  const t = useT();
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center px-5 py-16">
+    <main className="relative mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center px-5 py-16">
+      <LanguageSwitcher className="absolute right-4 top-4" />
+
       <div className="text-center">
-        <span className="chip-brand">Live · real-time · one PIN</span>
+        <span className="chip-brand">{t('home.chip')}</span>
 
         {/* One masthead: the crest and the product name share a rule, so the
             page reads as the society's rather than as a product that happens
@@ -27,7 +34,7 @@ export default function HomePage() {
         </div>
 
         <p className="mt-3.5 text-[13px] font-medium text-slate-400 sm:mt-4 sm:text-[15px]">
-          Hosted by <span className="text-brand-300">Ananda College ICT Society</span>
+          {t('home.hostedBy')} <span className="text-brand-300">{t('home.society')}</span>
         </p>
       </div>
 
@@ -37,13 +44,10 @@ export default function HomePage() {
           className="surface surface-hover group relative overflow-hidden p-6"
         >
           <span className="text-3xl">🎛️</span>
-          <h2 className="mt-3 font-display text-2xl font-bold">Host a quiz</h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-500">
-            Build questions, open a room, and drive the session from a live dashboard with
-            per-question analytics.
-          </p>
+          <h2 className="mt-3 font-display text-2xl font-bold">{t('home.host.title')}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-500">{t('home.host.body')}</p>
           <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-300">
-            Open the dashboard
+            {t('home.host.cta')}
             <span className="transition-transform group-hover:translate-x-0.5">→</span>
           </span>
         </Link>
@@ -53,12 +57,10 @@ export default function HomePage() {
           className="surface surface-hover group relative overflow-hidden p-6"
         >
           <span className="text-3xl">✋</span>
-          <h2 className="mt-3 font-display text-2xl font-bold">Join a quiz</h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-500">
-            Enter the 6-digit PIN your teacher is showing, pick a nickname, and play.
-          </p>
+          <h2 className="mt-3 font-display text-2xl font-bold">{t('home.join.title')}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-500">{t('home.join.body')}</p>
           <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-300">
-            Enter a PIN
+            {t('home.join.cta')}
             <span className="transition-transform group-hover:translate-x-0.5">→</span>
           </span>
         </Link>

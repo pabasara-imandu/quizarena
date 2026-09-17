@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { Option } from '@/lib/types';
+import { useT } from '@/lib/i18n';
 
 const TONE = ['bg-rose-500', 'bg-sky-500', 'bg-amber-500', 'bg-emerald-500', 'bg-violet-500', 'bg-orange-500'];
 
@@ -27,6 +28,7 @@ export function OrderAnswer({
   submitted?: boolean;
   submittedOrder?: string[] | null;
 }) {
+  const t = useT();
   const [order, setOrder] = useState<string[]>([]);
   const byId = new Map(options.map((o) => [o.id, o]));
   const tone = (id: string) => TONE[options.findIndex((o) => o.id === id) % TONE.length];
@@ -35,7 +37,7 @@ export function OrderAnswer({
     const shown = submittedOrder ?? order;
     return (
       <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <p className="mb-2 text-center text-sm text-slate-400">Your order</p>
+        <p className="mb-2 text-center text-sm text-slate-400">{t('order.yourOrder')}</p>
         <ol className="space-y-1.5">
           {shown.map((id, i) => (
             <li key={id} className="flex items-center gap-3 rounded-xl bg-white/[0.04] px-3 py-2">
@@ -71,20 +73,20 @@ export function OrderAnswer({
                     'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left font-semibold text-white shadow-soft transition active:scale-[0.98] ' +
                     tone(id)
                   }
-                  aria-label={'Remove ' + option.text + ' from position ' + (i + 1)}
+                  aria-label={t('order.removeAria', { item: option.text, n: i + 1 })}
                 >
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-black/25 text-sm nums">
                     {i + 1}
                   </span>
                   <span className="flex-1 text-[16px]">{option.text}</span>
-                  <span className="text-xs opacity-80">tap to undo</span>
+                  <span className="text-xs opacity-80">{t('order.tapToUndo')}</span>
                 </button>
               ) : (
                 <div className="flex items-center gap-3 rounded-xl border border-dashed border-white/15 px-3 py-2.5 text-slate-600">
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/[0.04] text-sm nums">
                     {i + 1}
                   </span>
-                  <span className="text-sm">{i === order.length ? 'Tap the next one below' : ''}</span>
+                  <span className="text-sm">{i === order.length ? t('order.tapNext') : ''}</span>
                 </div>
               )}
             </li>
@@ -118,7 +120,7 @@ export function OrderAnswer({
         disabled={disabled || !complete}
         onClick={() => onSubmit(order)}
       >
-        {complete ? 'Submit this order' : options.length - order.length + ' left to place'}
+        {complete ? t('order.submit') : t.n('order.left', options.length - order.length)}
       </button>
     </div>
   );

@@ -8,6 +8,7 @@ import {
   removeArchived,
   type ArchivedResults,
 } from '@/lib/resultsArchive';
+import { useT } from '@/lib/i18n';
 
 /**
  * Finished quizzes kept on this device, and a way back into a recovered file.
@@ -18,6 +19,7 @@ import {
  * or losing the server is no longer the same as losing the marks.
  */
 export function PastResults({ onOpen }: { onOpen: (data: Analytics) => void }) {
+  const t = useT();
   const [items, setItems] = useState<ArchivedResults[]>([]);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -30,7 +32,7 @@ export function PastResults({ onOpen }: { onOpen: (data: Analytics) => void }) {
     setError(null);
     const data = parseResultsFile(await file.text());
     if (!data) {
-      setError('That file is not a QuizArena results backup.');
+      setError(t('past.notBackup'));
       return;
     }
     onOpen(data);
@@ -41,11 +43,8 @@ export function PastResults({ onOpen }: { onOpen: (data: Analytics) => void }) {
       <div className="surface p-5">
         <div className="flex flex-wrap items-center gap-3">
           <div className="min-w-0 flex-1">
-            <p className="font-display font-bold">No saved results yet</p>
-            <p className="mt-0.5 text-[13px] text-slate-500">
-              Every quiz you finish is kept on this device automatically. You can also open a
-              backup file from another computer.
-            </p>
+            <p className="font-display font-bold">{t('past.noneTitle')}</p>
+            <p className="mt-0.5 text-[13px] text-slate-500">{t('past.noneBody')}</p>
           </div>
           <OpenFileButton fileRef={fileRef} onFile={openFile} />
         </div>
@@ -57,10 +56,8 @@ export function PastResults({ onOpen }: { onOpen: (data: Analytics) => void }) {
     <div className="surface p-5">
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <span className="eyebrow">Past results</span>
-          <p className="mt-0.5 text-[13px] text-slate-500">
-            Saved on this device. Open one to browse it, re-mark it or export it again.
-          </p>
+          <span className="eyebrow">{t('past.title')}</span>
+          <p className="mt-0.5 text-[13px] text-slate-500">{t('past.desc')}</p>
         </div>
         <OpenFileButton fileRef={fileRef} onFile={openFile} />
       </div>
@@ -82,19 +79,19 @@ export function PastResults({ onOpen }: { onOpen: (data: Analytics) => void }) {
             >
               <span className="truncate font-semibold">{item.quizTitle}</span>
               <span className="text-[12px] text-slate-500 nums">
-                {new Date(item.finishedAt).toLocaleString()} · PIN {item.pin}
+                {new Date(item.finishedAt).toLocaleString()} · {t('past.pin', { pin: item.pin })}
               </span>
             </button>
 
             <span className="shrink-0 text-xs text-slate-400 nums">
-              {item.playerCount} {item.playerCount === 1 ? 'student' : 'students'}
+              {t.n('past.students', item.playerCount)}
             </span>
             <span className="shrink-0 text-xs text-slate-500 nums">
-              {item.questionCount} Q
+              {t('past.q', { n: item.questionCount })}
             </span>
             {item.regraded && (
               <span className="shrink-0 rounded bg-brand-500/15 px-1.5 py-0.5 text-[10px] text-brand-200">
-                re-marked
+                {t('past.remarked')}
               </span>
             )}
 
@@ -105,9 +102,9 @@ export function PastResults({ onOpen }: { onOpen: (data: Analytics) => void }) {
                 removeArchived(item.id);
                 setItems(listArchived());
               }}
-              aria-label={'Delete saved results for ' + item.quizTitle}
+              aria-label={t('past.deleteAria', { title: item.quizTitle })}
             >
-              delete
+              {t('past.delete')}
             </button>
           </li>
         ))}
@@ -123,6 +120,7 @@ function OpenFileButton({
   fileRef: React.RefObject<HTMLInputElement | null>;
   onFile: (file: File) => void;
 }) {
+  const t = useT();
   return (
     <>
       <input
@@ -137,7 +135,7 @@ function OpenFileButton({
         }}
       />
       <button type="button" className="btn-secondary shrink-0" onClick={() => fileRef.current?.click()}>
-        Open a results file
+        {t('past.openFile')}
       </button>
     </>
   );

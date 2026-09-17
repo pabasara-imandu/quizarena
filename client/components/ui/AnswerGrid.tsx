@@ -1,6 +1,7 @@
 'use client';
 
 import type { Option } from '@/lib/types';
+import { useT } from '@/lib/i18n';
 
 /**
  * Kahoot-style answer tiles.
@@ -49,6 +50,7 @@ export function AnswerGrid({
   counts,
   totalAnswers,
 }: Props) {
+  const t = useT();
   const revealed = !!correctIds && !neutral;
   const interactive = !!onSelect && !disabled;
   const chosen = new Set(selectedIds ?? (selectedId ? [selectedId] : []));
@@ -115,7 +117,7 @@ export function AnswerGrid({
 
               {isChosen && !revealed && !counts && (
                 <span className="shrink-0 text-xs font-bold uppercase tracking-wide opacity-90">
-                  {selectedIds ? '✓' : 'yours'}
+                  {selectedIds ? '✓' : t('grid.yours')}
                 </span>
               )}
               {isCorrect && <span className="shrink-0 text-2xl">✓</span>}

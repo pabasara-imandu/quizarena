@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { findServerForPin } from '@/lib/servers';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
+import { useT } from '@/lib/i18n';
 
 
 interface RoomPreview {
@@ -24,6 +26,7 @@ export function JoinScreen({
   busy: boolean;
   error: string | null;
 }) {
+  const t = useT();
   const [pin, setPin] = useState(initialPin ?? '');
   const [nickname, setNickname] = useState('');
   const [preview, setPreview] = useState<RoomPreview | null>(null);
@@ -69,7 +72,8 @@ export function JoinScreen({
   const found = preview?.found && preview.acceptingJoins && !preview.full;
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center px-5 py-10">
+    <div className="relative mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center px-5 py-10">
+      <LanguageSwitcher className="absolute right-4 top-4" />
       <div className="mb-8 text-center">
         <h1 className="font-display text-4xl font-extrabold tracking-tight">
           Quiz<span className="text-brand-400">Arena</span>
@@ -85,7 +89,7 @@ export function JoinScreen({
       >
         <div>
           <label className="field-label text-center" htmlFor="pin">
-            Game PIN
+            {t('join.pinLabel')}
           </label>
           <input
             id="pin"
@@ -106,27 +110,25 @@ export function JoinScreen({
           />
           <div className="mt-2 min-h-[1.25rem] text-center text-sm">
             {preview?.found === false && (
-              <span className="text-rose-300">No room with that PIN.</span>
+              <span className="text-rose-300">{t('join.noRoom')}</span>
             )}
             {found && (
               <span className="text-emerald-300">
-                ✓ {preview!.quizTitle} · {preview!.playerCount} waiting
+                ✓ {t('join.found', { title: preview!.quizTitle ?? '', n: preview!.playerCount ?? 0 })}
               </span>
             )}
             {preview?.found && !preview.acceptingJoins && (
-              <span className="text-amber-300">That quiz has already started.</span>
+              <span className="text-amber-300">{t('join.started')}</span>
             )}
             {preview?.found && preview.acceptingJoins && preview.full && (
-              <span className="text-amber-300">
-                That room is full ({preview.maxPlayers} students). Ask your teacher.
-              </span>
+              <span className="text-amber-300">{t('join.full', { max: preview.maxPlayers ?? 0 })}</span>
             )}
           </div>
         </div>
 
         <div>
           <label className="field-label" htmlFor="nickname">
-            Your nickname
+            {t('join.nicknameLabel')}
           </label>
           <input
             id="nickname"
@@ -134,7 +136,7 @@ export function JoinScreen({
             className="field py-3.5 text-center text-lg"
             maxLength={18}
             autoComplete="off"
-            placeholder="Pick a name"
+            placeholder={t('join.nicknamePlaceholder')}
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
           />
@@ -150,13 +152,12 @@ export function JoinScreen({
         )}
 
         <button className="btn-primary w-full py-4 text-lg" type="submit" disabled={!ready}>
-          {busy ? 'Joining…' : 'Enter'}
+          {busy ? t('join.joining') : t('join.enter')}
         </button>
       </form>
 
       <p className="mt-6 px-4 text-center text-xs leading-relaxed text-slate-600">
-        Your teacher may ask this quiz to run in full-screen, and will be told if you leave the tab
-        while a question is live.
+        {t('join.fullscreenNote')}
       </p>
     </div>
   );

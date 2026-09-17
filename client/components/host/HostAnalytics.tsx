@@ -10,6 +10,7 @@ import {
   downloadText,
   exportStem,
 } from '@/lib/exportCsv';
+import { useT } from '@/lib/i18n';
 
 const pct = (n: number) => Math.round(n * 100) + '%';
 const secs = (ms: number | null) => (ms == null ? '—' : (ms / 1000).toFixed(1) + 's');
@@ -31,6 +32,7 @@ export function HostAnalytics({
   onRegrade?: (changes: RegradeChange[]) => Promise<void>;
   regrading?: boolean;
 }) {
+  const t = useT();
   const [tab, setTab] = useState<
     'questions' | 'students' | 'matrix' | 'integrity' | 'remark'
   >('questions');
@@ -54,7 +56,7 @@ export function HostAnalytics({
   return (
     <div className="space-y-6">
       <div className="surface p-7 text-center">
-        <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Final results</p>
+        <p className="text-sm uppercase tracking-[0.3em] text-slate-400">{t('an.finalResults')}</p>
         <h1 className="mt-1 font-display text-3xl font-extrabold">{data.quizTitle}</h1>
 
         <div className="mt-6 flex items-end justify-center gap-3">
@@ -85,47 +87,41 @@ export function HostAnalytics({
         </div>
 
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Metric label="Players" value={String(data.playerCount)} />
-          <Metric label="Questions" value={String(data.questionCount)} />
+          <Metric label={t('an.players')} value={String(data.playerCount)} />
+          <Metric label={t('an.questions')} value={String(data.questionCount)} />
           <Metric
-            label="Class accuracy"
+            label={t('an.classAccuracy')}
             value={pct(data.overallAccuracy)}
             tone={data.overallAccuracy < 0.5 ? 'bad' : data.overallAccuracy > 0.75 ? 'good' : 'mid'}
           />
-          <Metric label="Average score" value={data.averageScore.toLocaleString()} />
+          <Metric label={t('an.avgScore')} value={data.averageScore.toLocaleString()} />
         </div>
 
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button className="btn-secondary" type="button" onClick={saveSummary}>
-            Summary (CSV)
+            {t('an.summaryCsv')}
           </button>
           <button className="btn-secondary" type="button" onClick={saveGradebook}>
-            Full gradebook (CSV)
+            {t('an.gradebookCsv')}
           </button>
           <button className="btn-secondary" type="button" onClick={savePerStudent}>
-            Per-student (CSV)
+            {t('an.perStudentCsv')}
           </button>
-          <button className="btn-ghost" type="button" onClick={saveBackup} title="Everything, as a file you can reopen here later">
-            Backup (JSON)
+          <button className="btn-ghost" type="button" onClick={saveBackup} title={t('an.backupTitle')}>
+            {t('an.backup')}
           </button>
           <button className="btn-primary btn-lg" type="button" onClick={onRestart}>
-            Host another quiz
+            {t('an.hostAnother')}
           </button>
         </div>
-        <p className="mt-2 text-xs text-slate-500">
-          The gradebook is one row per student with a column per question; per-student is one
-          row per answer, ready to filter or pivot. All of these are built on this device — they
-          keep working if the room has closed.
-        </p>
+        <p className="mt-2 text-xs text-slate-500">{t('an.exportNote')}</p>
       </div>
 
       {/* The headline teaching insight: what the class did not understand. */}
       {data.hardestQuestions.length > 0 && (
         <div className="surface border-amber-400/20 bg-amber-500/[0.05] p-6">
-          <h2 className="font-display text-xl font-bold text-amber-200">Worth re-teaching</h2>
-          <p className="mb-3 mt-1 text-sm text-slate-400">
-            Lowest accuracy across the class - these are the concepts that did not land.
-          </p>
+          <h2 className="font-display text-xl font-bold text-amber-200">{t('an.reteach')}</h2>
+          <p className="mb-3 mt-1 text-sm text-slate-400">{t('an.reteachDesc')}</p>
           <ul className="space-y-2">
             {data.hardestQuestions.map((q) => (
               <li
@@ -145,7 +141,7 @@ export function HostAnalytics({
         </div>
       )}
 
-      <div className="segmented" role="tablist" aria-label="Results view">
+      <div className="segmented" role="tablist" aria-label={t('an.tabsAria')}>
         {(
           [
             'questions',
@@ -156,22 +152,22 @@ export function HostAnalytics({
             // multiple choice has nothing a teacher could overrule.
             ...(onRegrade && shortAnswerCount > 0 ? (['remark'] as const) : []),
           ] as const
-        ).map((t) => (
+        ).map((tabId) => (
           <button
-            key={t}
+            key={tabId}
             type="button"
             role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className="segmented-item capitalize"
+            aria-selected={tab === tabId}
+            onClick={() => setTab(tabId)}
+            className="segmented-item"
           >
-            {t === 'remark' ? 'Re-mark' : t}
-            {t === 'integrity' && data.integrityLog.length > 0 && (
+            {t(('an.tab.' + tabId) as 'an.tab.questions')}
+            {tabId === 'integrity' && data.integrityLog.length > 0 && (
               <span className="ml-1.5 rounded-full bg-black/30 px-1.5 py-0.5 text-[10px] nums">
                 {data.integrityLog.length}
               </span>
             )}
-            {t === 'remark' && (
+            {tabId === 'remark' && (
               <span className="ml-1.5 rounded-full bg-black/30 px-1.5 py-0.5 text-[10px] nums">
                 {shortAnswerCount}
               </span>
@@ -208,31 +204,34 @@ export function HostAnalytics({
               </div>
 
               <p className="mt-1 text-xs text-slate-500">
-                {q.correct}/{q.answered} correct · {q.unanswered} did not answer
-                {q.skipped > 0 ? ' · ' + q.skipped + ' skipped' : ''} · avg{' '}
-                {secs(q.averageResponseMs)} of {q.timeLimitSec}s
+                {t('an.qStats', { correct: q.correct, answered: q.answered, unanswered: q.unanswered })}
+                {q.skipped > 0 ? ' · ' + t('an.skippedN', { n: q.skipped }) : ''} ·{' '}
+                {t('an.avgOf', { avg: secs(q.averageResponseMs), limit: q.timeLimitSec })}
               </p>
 
               {q.type === 'short' && q.acceptedAnswers && (
                 <p className="mt-2 text-xs text-emerald-300">
-                  Accepted: {q.acceptedAnswers.join(' · ')}
+                  {t('an.accepted', { list: q.acceptedAnswers.join(' · ') })}
                 </p>
               )}
               {q.type === 'numeric' && q.answer != null && (
                 <p className="mt-2 text-xs text-emerald-300">
-                  Answer: {q.answer}
-                  {q.tolerance ? ' ± ' + q.tolerance : ''}
-                  {q.unit ? ' ' + q.unit : ''}
+                  {t('an.answerKey', {
+                    answer:
+                      String(q.answer) + (q.tolerance ? ' ± ' + q.tolerance : '') + (q.unit ? ' ' + q.unit : ''),
+                  })}
                 </p>
               )}
               {q.type === 'ordering' && q.correctOrder && (
                 <p className="mt-2 text-xs text-emerald-300">
-                  Correct order: {q.correctOrder.map((id) => q.options.find((o) => o.id === id)?.text ?? id).join(' → ')}
+                  {t('an.correctOrder', {
+                    order: q.correctOrder.map((id) => q.options.find((o) => o.id === id)?.text ?? id).join(' → '),
+                  })}
                 </p>
               )}
               {q.explanation && (
                 <p className="mt-2 rounded-lg bg-brand-500/[0.07] px-3 py-2 text-xs leading-relaxed text-slate-300">
-                  <b className="text-brand-300">Why: </b>
+                  <b className="text-brand-300">{t('an.why')} </b>
                   {q.explanation}
                 </p>
               )}
@@ -271,7 +270,7 @@ export function HostAnalytics({
                 })}
                 {q.answered === 0 && (
                   <li className="rounded-lg bg-white/5 px-3 py-2 text-sm text-slate-500">
-                    Nobody answered this one.
+                    {t('an.nobodyAnswered')}
                   </li>
                 )}
               </ul>
@@ -287,9 +286,7 @@ export function HostAnalytics({
       {tab === 'integrity' && (
         <div className="surface p-5">
           {data.integrityLog.length === 0 ? (
-            <p className="py-8 text-center text-slate-500">
-              No integrity events were recorded during this session.
-            </p>
+            <p className="py-8 text-center text-slate-500">{t('an.noIntegrity')}</p>
           ) : (
             <ul className="space-y-1 text-sm">
               {data.integrityLog
@@ -301,7 +298,9 @@ export function HostAnalytics({
                       {new Date(e.at).toLocaleTimeString()}
                     </span>
                     <span className="w-32 shrink-0 truncate font-medium">{e.nickname}</span>
-                    <span className="min-w-0 flex-1 text-slate-300">{e.type.replace(/_/g, ' ')}</span>
+                    <span className="min-w-0 flex-1 text-slate-300">
+                      {t(('integ.' + e.type) as 'integ.tab_hidden')}
+                    </span>
                     <span className="shrink-0 text-xs text-slate-500">
                       Q{e.questionIndex + 1}
                     </span>
@@ -309,11 +308,7 @@ export function HostAnalytics({
                 ))}
             </ul>
           )}
-          <p className="mt-4 text-xs leading-relaxed text-slate-500">
-            These signals show that a student&apos;s browser lost focus or left full-screen. They are
-            not proof of cheating - a notification, a dropped call or a screen-reader can all trigger
-            them. Treat the log as a prompt to ask, not as a verdict.
-          </p>
+          <p className="mt-4 text-xs leading-relaxed text-slate-500">{t('an.integrityNote')}</p>
         </div>
       )}
     </div>
@@ -326,11 +321,12 @@ export function HostAnalytics({
  * one child's row across, or one question's column down.
  */
 function MatrixTable({ data }: { data: Analytics }) {
+  const t = useT();
   const { matrix } = data;
   const [showResponses, setShowResponses] = useState(false);
 
   if (!matrix?.rows?.length) {
-    return <div className="surface p-8 text-center text-sm text-slate-500">No responses to show.</div>;
+    return <div className="surface p-8 text-center text-sm text-slate-500">{t('mx.noResponses')}</div>;
   }
 
   const cellStyle: Record<string, string> = {
@@ -349,7 +345,7 @@ function MatrixTable({ data }: { data: Analytics }) {
   return (
     <div className="surface p-5">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h3 className="font-display text-lg font-bold">Every student, every question</h3>
+        <h3 className="font-display text-lg font-bold">{t('mx.title')}</h3>
         <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-slate-400">
           <input
             type="checkbox"
@@ -357,7 +353,7 @@ function MatrixTable({ data }: { data: Analytics }) {
             checked={showResponses}
             onChange={(e) => setShowResponses(e.target.checked)}
           />
-          Show what they answered
+          {t('mx.showResponses')}
         </label>
       </div>
 
@@ -366,10 +362,10 @@ function MatrixTable({ data }: { data: Analytics }) {
           <thead>
             <tr>
               <th className="sticky left-0 z-10 bg-ink-800 px-2 py-2 text-left text-xs uppercase tracking-wide text-slate-500">
-                Student
+                {t('mx.student')}
               </th>
               <th className="px-2 py-2 text-right text-xs uppercase tracking-wide text-slate-500">
-                Score
+                {t('mx.score')}
               </th>
               {matrix.questions.map((q) => (
                 <th
@@ -396,9 +392,8 @@ function MatrixTable({ data }: { data: Analytics }) {
                     <div
                       title={
                         (cell.response ? cell.response + ' — ' : '') +
-                        cell.points +
-                        ' pts' +
-                        (cell.responseMs ? ' in ' + (cell.responseMs / 1000).toFixed(1) + 's' : '')
+                        t('mx.pts', { n: cell.points }) +
+                        (cell.responseMs ? ' ' + t('mx.inTime', { s: (cell.responseMs / 1000).toFixed(1) }) : '')
                       }
                       className={
                         'min-w-[2.25rem] rounded px-1.5 py-1 text-center text-xs ' +
@@ -423,16 +418,16 @@ function MatrixTable({ data }: { data: Analytics }) {
 
       <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
         <span>
-          <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-emerald-200">✓</span> correct
+          <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-emerald-200">✓</span> {t('mx.correct')}
         </span>
         <span>
-          <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-rose-200">✕</span> incorrect
+          <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-rose-200">✕</span> {t('mx.incorrect')}
         </span>
         <span>
-          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-200">⏭</span> skipped
+          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-200">⏭</span> {t('mx.skipped')}
         </span>
         <span>
-          <span className="rounded bg-white/5 px-1.5 py-0.5 text-slate-500">·</span> no answer
+          <span className="rounded bg-white/5 px-1.5 py-0.5 text-slate-500">·</span> {t('mx.noAnswer')}
         </span>
       </div>
     </div>
@@ -448,6 +443,7 @@ function MatrixTable({ data }: { data: Analytics }) {
  * already sends, so this needs no network and works on an archive.
  */
 function StudentBreakdown({ data }: { data: Analytics }) {
+  const t = useT();
   const [open, setOpen] = useState<string | null>(null);
   const { matrix } = data;
 
@@ -458,13 +454,13 @@ function StudentBreakdown({ data }: { data: Analytics }) {
           <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3 pr-3">#</th>
-              <th className="py-3 pr-3">Student</th>
-              <th className="py-3 pr-3 text-right">Marks</th>
-              <th className="py-3 pr-3 text-right">Correct</th>
-              <th className="py-3 pr-3 text-right">Accuracy</th>
-              <th className="py-3 pr-3 text-right">Avg time</th>
-              <th className="py-3 pr-3 text-right">Streak</th>
-              <th className="py-3 pr-4 text-right">Flags</th>
+              <th className="py-3 pr-3">{t('st.student')}</th>
+              <th className="py-3 pr-3 text-right">{t('st.marks')}</th>
+              <th className="py-3 pr-3 text-right">{t('st.correct')}</th>
+              <th className="py-3 pr-3 text-right">{t('st.accuracy')}</th>
+              <th className="py-3 pr-3 text-right">{t('st.avgTime')}</th>
+              <th className="py-3 pr-3 text-right">{t('st.streak')}</th>
+              <th className="py-3 pr-4 text-right">{t('st.flags')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -500,10 +496,10 @@ function StudentBreakdown({ data }: { data: Analytics }) {
                     <td className="py-2.5 pr-4 text-right">
                       {p && p.strikes + p.tabSwitches > 0 ? (
                         <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
-                          {p.tabSwitches} tab · {p.fullscreenExits} fs
+                          {t('st.flagsValue', { tab: p.tabSwitches, fs: p.fullscreenExits })}
                         </span>
                       ) : (
-                        <span className="text-slate-600">clean</span>
+                        <span className="text-slate-600">{t('st.clean')}</span>
                       )}
                     </td>
                   </tr>
@@ -514,12 +510,12 @@ function StudentBreakdown({ data }: { data: Analytics }) {
                         <table className="w-full text-[13px]">
                           <thead className="text-left text-[11px] uppercase tracking-wide text-slate-600">
                             <tr>
-                              <th className="py-1.5 pr-3">Q</th>
-                              <th className="py-1.5 pr-3">Question</th>
-                              <th className="py-1.5 pr-3">Their answer</th>
-                              <th className="py-1.5 pr-3">Correct?</th>
-                              <th className="py-1.5 pr-3 text-right">Marks</th>
-                              <th className="py-1.5 text-right">Time</th>
+                              <th className="py-1.5 pr-3">{t('st.q')}</th>
+                              <th className="py-1.5 pr-3">{t('st.question')}</th>
+                              <th className="py-1.5 pr-3">{t('st.theirAnswer')}</th>
+                              <th className="py-1.5 pr-3">{t('st.correctQ')}</th>
+                              <th className="py-1.5 pr-3 text-right">{t('st.marks')}</th>
+                              <th className="py-1.5 text-right">{t('st.time')}</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-white/[0.04]">
@@ -531,20 +527,20 @@ function StudentBreakdown({ data }: { data: Analytics }) {
                                   <td className="max-w-[22rem] truncate py-1.5 pr-3 text-slate-300">{q.text}</td>
                                   <td className="max-w-[16rem] truncate py-1.5 pr-3">
                                     {cell.status === 'no_answer' ? (
-                                      <span className="italic text-slate-600">no answer</span>
+                                      <span className="italic text-slate-600">{t('st.noAnswer')}</span>
                                     ) : cell.status === 'skipped' ? (
-                                      <span className="italic text-slate-500">skipped</span>
+                                      <span className="italic text-slate-500">{t('st.skipped')}</span>
                                     ) : (
                                       cell.response
                                     )}
                                   </td>
                                   <td className="py-1.5 pr-3">
                                     {cell.status === 'correct' ? (
-                                      <span className="font-semibold text-emerald-300">✓ Yes</span>
+                                      <span className="font-semibold text-emerald-300">{t('st.yes')}</span>
                                     ) : cell.status === 'incorrect' ? (
-                                      <span className="font-semibold text-rose-300">✕ No</span>
+                                      <span className="font-semibold text-rose-300">{t('st.no')}</span>
                                     ) : cell.status === 'answered' ? (
-                                      <span className="text-brand-300">voted</span>
+                                      <span className="text-brand-300">{t('st.voted')}</span>
                                     ) : (
                                       <span className="text-slate-600">—</span>
                                     )}
@@ -568,7 +564,7 @@ function StudentBreakdown({ data }: { data: Analytics }) {
         </table>
       </div>
       <p className="border-t border-white/[0.05] px-4 py-2.5 text-[12px] text-slate-600">
-        Click a student to see every question they answered.
+        {t('st.clickHint')}
       </p>
     </div>
   );

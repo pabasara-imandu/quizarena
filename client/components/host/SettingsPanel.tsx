@@ -3,6 +3,7 @@
 import { SlideOver } from '@/components/ui/SlideOver';
 import { Toggle } from '@/components/ui/Toggle';
 import type { RoomSettings } from '@/lib/types';
+import { useT } from '@/lib/i18n';
 
 /**
  * Every room setting, grouped and out of the way.
@@ -23,86 +24,87 @@ export function SettingsPanel({
   settings: RoomSettings;
   onChange: (patch: Partial<RoomSettings>) => void;
 }) {
+  const t = useT();
   return (
     <SlideOver
       open={open}
       onClose={onClose}
-      title="Room settings"
-      description="These apply to the whole quiz. Defaults suit most classes."
+      title={t('settings.title')}
+      description={t('settings.desc')}
       footer={
         <button type="button" className="btn-primary w-full" onClick={onClose}>
-          Done
+          {t('settings.done')}
         </button>
       }
     >
       <div className="space-y-7">
-        <Group title="Scoring">
+        <Group title={t('settings.scoring')}>
           <Toggle
-            label="Speed bonus"
-            hint="Faster correct answers score more. Turn off for a fairness-first run."
+            label={t('settings.speedBonus')}
+            hint={t('settings.speedBonusHint')}
             checked={settings.speedBonus}
             onChange={(v) => onChange({ speedBonus: v })}
           />
           <Toggle
-            label="Leaderboard between questions"
-            hint="Show the standings after each reveal."
+            label={t('settings.leaderboard')}
+            hint={t('settings.leaderboardHint')}
             checked={settings.showLeaderboardBetweenQuestions}
             onChange={(v) => onChange({ showLeaderboardBetweenQuestions: v })}
           />
         </Group>
 
-        <Group title="How the room runs">
+        <Group title={t('settings.howRuns')}>
           <Toggle
-            label="Run the quiz on its own"
-            hint="Each question moves to the answers and on to the next by itself, so you never have to reach for Next. You can still press it to jump ahead."
+            label={t('settings.auto')}
+            hint={t('settings.autoHint')}
             checked={settings.autoAdvance}
             onChange={(v) => onChange({ autoAdvance: v })}
           />
           <Toggle
-            label="Let students skip"
-            hint="A Skip button ends their turn early, so one table cannot hold up the room."
+            label={t('settings.skip')}
+            hint={t('settings.skipHint')}
             checked={settings.allowSkip}
             onChange={(v) => onChange({ allowSkip: v })}
           />
           <Toggle
-            label="Allow late joins"
-            hint="Latecomers can join mid-quiz, starting from zero."
+            label={t('settings.lateJoin')}
+            hint={t('settings.lateJoinHint')}
             checked={settings.allowLateJoin}
             onChange={(v) => onChange({ allowLateJoin: v })}
           />
           <Toggle
-            label="Live emoji reactions"
-            hint="Students can send emoji that float across your screen between questions."
+            label={t('settings.reactions')}
+            hint={t('settings.reactionsHint')}
             checked={settings.allowReactions}
             onChange={(v) => onChange({ allowReactions: v })}
           />
         </Group>
 
-        <Group title="Integrity">
+        <Group title={t('settings.integrity')}>
           <Toggle
-            label="Scramble answer order"
-            hint="Each student sees the options in a different order, so glancing at a neighbour's screen does not help."
+            label={t('settings.shuffleAnswers')}
+            hint={t('settings.shuffleAnswersHint')}
             checked={settings.shuffleAnswers}
             onChange={(v) => onChange({ shuffleAnswers: v })}
           />
           <Toggle
-            label="Shuffle question order"
-            hint="Randomises the running order once, for the whole room."
+            label={t('settings.shuffleQuestions')}
+            hint={t('settings.shuffleQuestionsHint')}
             checked={settings.shuffleQuestions}
             onChange={(v) => onChange({ shuffleQuestions: v })}
           />
           <Toggle
-            label="Require full-screen"
-            hint="Students must enter full-screen to play; leaving it pauses their quiz."
+            label={t('settings.fullscreen')}
+            hint={t('settings.fullscreenHint')}
             checked={settings.requireFullscreen}
             onChange={(v) => onChange({ requireFullscreen: v })}
           />
 
           <div className="px-3 pt-2">
             <div className="mb-2 flex items-baseline justify-between">
-              <span className="field-label mb-0">Warnings before a student is paused</span>
+              <span className="field-label mb-0">{t('settings.warningsLabel')}</span>
               <span className="font-display text-lg font-bold text-brand-300 nums">
-                {settings.strikeLimit || 'Off'}
+                {settings.strikeLimit || t('settings.off')}
               </span>
             </div>
             <input
@@ -112,20 +114,17 @@ export function SettingsPanel({
               value={settings.strikeLimit}
               onChange={(e) => onChange({ strikeLimit: Number(e.target.value) })}
               className="w-full accent-brand-500"
-              aria-label="Warnings before a student is paused"
+              aria-label={t('settings.warningsLabel')}
             />
             <p className="field-hint">
               {settings.strikeLimit === 0
-                ? 'Nobody is paused — events are still logged for you to review.'
-                : 'After ' +
-                  settings.strikeLimit +
-                  ' warnings the student is paused until you let them back in.'}
+                ? t('settings.nobodyPaused')
+                : t('settings.afterWarnings', { n: settings.strikeLimit })}
             </p>
           </div>
 
           <p className="mx-3 rounded-xl bg-amber-500/[0.07] px-3 py-2.5 text-xs leading-relaxed text-amber-200/80">
-            These signals show a browser lost focus — not that someone cheated. A notification, a
-            dropped call or a screen reader can all trip them. Treat the log as a prompt to ask.
+            {t('settings.signalsNote')}
           </p>
         </Group>
       </div>

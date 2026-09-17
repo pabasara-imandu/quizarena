@@ -2,6 +2,7 @@
 
 import { EmojiBar } from '@/components/ui/EmojiBar';
 import type { Reaction } from '@/lib/types';
+import { useT } from '@/lib/i18n';
 
 export function WaitingRoom({
   nickname,
@@ -24,12 +25,13 @@ export function WaitingRoom({
   allowReactions?: boolean;
   onReact?: (emoji: Reaction) => void;
 }) {
+  const t = useT();
   const needsFullscreen = requireFullscreen && fullscreenSupported && !isFullscreen;
 
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col items-center justify-center px-5 py-10 text-center">
       <div className="surface w-full p-7">
-        <p className="eyebrow">You are in</p>
+        <p className="eyebrow">{t('lobby.youAreIn')}</p>
         <p className="mt-2 font-display text-4xl font-extrabold">{nickname}</p>
         {quizTitle && <p className="mt-2 text-sm text-slate-500">{quizTitle}</p>}
 
@@ -37,18 +39,17 @@ export function WaitingRoom({
           <div className="mt-8 rounded-2xl border border-amber-400/25 bg-amber-500/[0.08] p-5">
             <p className="text-3xl">⛶</p>
             <p className="mt-2 font-display text-lg font-bold text-amber-200">
-              One more step: go full-screen
+              {t('lobby.fullscreenStepTitle')}
             </p>
             <p className="mt-2 text-sm leading-relaxed text-amber-100/70">
-              Your teacher has asked everyone to play in full-screen. Your browser will only let us
-              do that when you tap the button yourself.
+              {t('lobby.fullscreenStepBody')}
             </p>
             <button
               className="btn-primary mt-4 w-full py-3"
               type="button"
               onClick={onEnterFullscreen}
             >
-              Enter full-screen
+              {t('lobby.enterFullscreen')}
             </button>
           </div>
         ) : (
@@ -58,14 +59,14 @@ export function WaitingRoom({
               <Dot delay="150ms" />
               <Dot delay="300ms" />
             </div>
-            <p className="mt-4 font-display text-lg font-semibold">Waiting for the host to start…</p>
+            <p className="mt-4 font-display text-lg font-semibold">{t('lobby.waitingForHost')}</p>
             {typeof playerCount === 'number' && playerCount > 0 && (
               <p className="mt-1 text-sm text-slate-500 nums">
-                {playerCount} {playerCount === 1 ? 'player' : 'players'} in the room
+                {t.n('lobby.playersInRoom', playerCount)}
               </p>
             )}
             {requireFullscreen && fullscreenSupported && (
-              <p className="mt-4 text-xs text-emerald-300">Full-screen active ✓</p>
+              <p className="mt-4 text-xs text-emerald-300">{t('lobby.fullscreenActive')}</p>
             )}
           </div>
         )}
@@ -75,13 +76,11 @@ export function WaitingRoom({
           while everyone joins — and give the teacher a read on the room. */}
       {allowReactions && onReact && !needsFullscreen && (
         <div className="mt-7 w-full">
-          <EmojiBar onSend={onReact} label="Say hello on the big screen" />
+          <EmojiBar onSend={onReact} label={t('lobby.sayHello')} />
         </div>
       )}
 
-      <p className="mt-7 px-4 text-xs leading-relaxed text-slate-600">
-        Keep this tab open. Leaving it while a question is live will be flagged to your teacher.
-      </p>
+      <p className="mt-7 px-4 text-xs leading-relaxed text-slate-600">{t('lobby.keepTabOpen')}</p>
     </div>
   );
 }

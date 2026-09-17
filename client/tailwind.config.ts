@@ -30,8 +30,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ['var(--font-display)', 'ui-rounded', 'system-ui', 'sans-serif'],
-        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'var(--font-sinhala)', 'ui-rounded', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-sans)', 'var(--font-sinhala)', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         xl: '0.875rem',

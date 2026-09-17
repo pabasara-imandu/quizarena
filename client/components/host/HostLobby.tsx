@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ReactionOverlay } from '@/components/host/ReactionOverlay';
 import type { HostPlayer } from '@/lib/types';
+import { useT } from '@/lib/i18n';
 
 /**
  * The lobby is a projector screen first and a dashboard second: for a few
@@ -37,6 +38,7 @@ export function HostLobby({
   starting: boolean;
   reactionBurst?: { reactions: { emoji: string; count: number }[]; at: number } | null;
 }) {
+  const t = useT();
   const [joinUrl, setJoinUrl] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -66,24 +68,24 @@ export function HostLobby({
         />
 
         <div className="relative">
-          <p className="eyebrow">Join at</p>
+          <p className="eyebrow">{t('hl.joinAt')}</p>
           <p className="mt-1.5 break-all text-[15px] font-medium text-brand-300">{joinUrl || '…'}</p>
 
-          <p className="eyebrow mt-10">Game PIN</p>
+          <p className="eyebrow mt-10">{t('hl.gamePin')}</p>
           <p className="mt-1 font-display text-[clamp(3.5rem,13vw,7.5rem)] font-extrabold leading-none tracking-[0.08em] nums">
             {pin}
           </p>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-2.5">
             <button className="btn-secondary" type="button" onClick={copy}>
-              {copied ? '✓ Link copied' : 'Copy join link'}
+              {copied ? t('hl.copied') : t('hl.copy')}
             </button>
             {/* Launching used to be a one-way door: spotting a typo on the
                 projector meant abandoning the room and re-gathering everyone
                 on a new PIN. The room survives the edit. */}
             {onEdit && (
               <button className="btn-secondary" type="button" onClick={onEdit} disabled={starting}>
-                <span aria-hidden>✎</span> Edit quiz
+                <span aria-hidden>✎</span> {t('hl.edit')}
               </button>
             )}
             <button
@@ -92,19 +94,17 @@ export function HostLobby({
               onClick={onStart}
               disabled={players.length === 0 || starting}
             >
-              {starting ? 'Starting…' : 'Start quiz →'}
+              {starting ? t('hl.starting') : t('hl.start')}
             </button>
           </div>
 
           <p className="mt-8 text-sm text-slate-500">
             {players.length === 0 ? (
-              <span className="animate-breathe">Waiting for the first player…</span>
+              <span className="animate-breathe">{t('hl.waitingFirst')}</span>
+            ) : maxPlayers ? (
+              t.n('hl.readyOf', players.length, { max: maxPlayers })
             ) : (
-              <>
-                <b className="text-slate-300 nums">{players.length}</b>
-                {maxPlayers ? <span className="nums text-slate-600"> / {maxPlayers}</span> : null}{' '}
-                {players.length === 1 ? 'player is' : 'players are'} ready
-              </>
+              t.n('hl.ready', players.length)
             )}
           </p>
 
@@ -119,28 +119,27 @@ export function HostLobby({
                   : 'bg-amber-500/[0.08] text-amber-200/90')
               }
             >
-              {players.length >= maxPlayers ? 'This room is full. ' : ''}
-              Rooms are limited to <b className="nums">{maxPlayers}</b> students without signing
-              in. Sign in with Google before your next quiz to lift the limit.
+              {players.length >= maxPlayers ? t('hl.fullPrefix') + ' ' : ''}
+              {t('hl.limited', { max: maxPlayers })}
             </p>
           )}
           <p className="mt-1.5 text-xs text-slate-600">
             {quizTitle}
-            {questionCount ? ' · ' + questionCount + (questionCount === 1 ? ' question' : ' questions') : ''}
+            {questionCount ? ' · ' + t.n('hl.questions', questionCount) : ''}
           </p>
         </div>
       </div>
 
       <div className="surface flex max-h-[70vh] flex-col p-4">
         <div className="mb-3 flex items-center gap-2 px-1">
-          <span className="eyebrow">In the room</span>
+          <span className="eyebrow">{t('hl.inRoom')}</span>
           <span className="ml-auto font-display text-lg font-bold text-emerald-300 nums">
             {players.length}
           </span>
         </div>
 
         {players.length === 0 ? (
-          <p className="py-12 text-center text-sm text-slate-600">Nobody yet.</p>
+          <p className="py-12 text-center text-sm text-slate-600">{t('hl.nobody')}</p>
         ) : (
           <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
             {players.map((p) => (
@@ -152,14 +151,14 @@ export function HostLobby({
                   {p.nickname.slice(0, 2).toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm">{p.nickname}</span>
-                {!p.connected && <span className="text-[11px] text-slate-600">offline</span>}
+                {!p.connected && <span className="text-[11px] text-slate-600">{t('ui.offline')}</span>}
                 <button
                   type="button"
                   className="shrink-0 rounded px-2 py-1 text-[11px] text-slate-600 transition hover:text-rose-300 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
                   onClick={() => onKick(p.id)}
-                  aria-label={'Remove ' + p.nickname}
+                  aria-label={t('hl.removeAria', { name: p.nickname })}
                 >
-                  remove
+                  {t('hl.remove')}
                 </button>
               </li>
             ))}

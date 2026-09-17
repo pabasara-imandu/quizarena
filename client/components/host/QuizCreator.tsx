@@ -14,6 +14,8 @@ import {
   loadDraft,
   saveDraft,
 } from '@/lib/quizDraft';
+import { useT, type Translator } from '@/lib/i18n';
+import { en } from '@/lib/i18n/en';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -38,7 +40,7 @@ const FIRST_QUESTION: Question = {
   ],
 };
 
-function blank(type: Question['type']): Question {
+function blank(type: Question['type'], t: Translator): Question {
   const base = { id: uid(), text: '', image: null as string | null };
   if (type === 'truefalse') {
     return {
@@ -47,8 +49,8 @@ function blank(type: Question['type']): Question {
       timeLimitSec: 15,
       points: 800,
       options: [
-        { id: 'true', text: 'True', correct: true },
-        { id: 'false', text: 'False', correct: false },
+        { id: 'true', text: t('type.true'), correct: true },
+        { id: 'false', text: t('type.false'), correct: false },
       ],
     };
   }
@@ -107,7 +109,8 @@ interface Props {
  * question you are writing.
  */
 export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdit }: Props) {
-  const [title, setTitle] = useState(editing?.quiz.title ?? 'My live quiz');
+  const t = useT();
+  const [title, setTitle] = useState(editing?.quiz.title ?? t('creator.defaultTitle'));
   const [questions, setQuestions] = useState<Question[]>(
     editing?.quiz.questions ?? [FIRST_QUESTION]
   );
@@ -116,6 +119,12 @@ export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdi
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [startFromOpen, setStartFromOpen] = useState(false);
   const [restoredAt, setRestoredAt] = useState<number | null>(null);
+
+  // The page first paints in English, then the device's language arrives. An
+  // untouched default title follows it; one the teacher typed is left alone.
+  useEffect(() => {
+    setTitle((cur) => (cur === en['creator.defaultTitle'] ? t('creator.defaultTitle') : cur));
+  }, [t]);
 
   /**
    * Bring back whatever was on this device.
@@ -152,8 +161,8 @@ export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdi
 
   const startFresh = () => {
     clearDraft();
-    setTitle('My live quiz');
-    setQuestions([blank('multiple')]);
+    setTitle(t('creator.defaultTitle'));
+    setQuestions([blank('multiple', t)]);
     setSettings(DEFAULT_SETTINGS);
     setSelected(0);
     setRestoredAt(null);
@@ -179,7 +188,7 @@ export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdi
   };
 
   const add = () => {
-    setQuestions((qs) => [...qs, blank('multiple')]);
+    setQuestions((qs) => [...qs, blank('multiple', t)]);
     setSelected(questions.length);
   };
 
@@ -211,26 +220,26 @@ export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdi
       <div className="sticky top-0 z-20 -mx-4 mb-5 border-b border-white/[0.06] bg-ink-950/85 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center gap-3">
           <input
-            aria-label="Quiz title"
+            aria-label={t('creator.titleAria')}
             className="min-w-0 flex-1 rounded-xl border border-transparent bg-transparent px-2 py-1.5 font-display text-xl font-bold text-slate-100 transition placeholder:text-slate-600 hover:border-white/10 focus:border-brand-500/60 focus:bg-ink-900 focus:outline-none sm:text-2xl"
             value={title}
             maxLength={120}
-            placeholder="Name your quiz"
+            placeholder={t('creator.titlePlaceholder')}
             onChange={(e) => setTitle(e.target.value)}
           />
 
           <div className="flex shrink-0 items-center gap-2">
             <button type="button" className="btn-ghost" onClick={() => setStartFromOpen(true)}>
               <span aria-hidden>📄</span>
-              <span className="hidden sm:inline">Import / Generate</span>
+              <span className="hidden sm:inline">{t('creator.importGenerate')}</span>
             </button>
             <button type="button" className="btn-secondary" onClick={() => setSettingsOpen(true)}>
               <span aria-hidden>⚙</span>
-              <span className="hidden sm:inline">Settings</span>
+              <span className="hidden sm:inline">{t('creator.settings')}</span>
             </button>
             {editing && (
               <button type="button" className="btn-ghost" onClick={onCancelEdit} disabled={busy}>
-                Cancel
+                {t('creator.cancel')}
               </button>
             )}
             <button
@@ -239,30 +248,33 @@ export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdi
               disabled={busy || incompleteCount > 0}
               onClick={() => onLaunch({ title, questions }, settings)}
             >
-              {busy ? (editing ? 'Saving…' : 'Opening…') : editing ? 'Save changes' : 'Launch'}
+              {busy
+                ? editing
+                  ? t('creator.saving')
+                  : t('creator.opening')
+                : editing
+                  ? t('creator.saveChanges')
+                  : t('creator.launch')}
             </button>
           </div>
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-2 text-[13px]">
           {incompleteCount > 0 ? (
-            <span className="text-amber-300">
-              {incompleteCount} question{incompleteCount > 1 ? 's' : ''} need
-              {incompleteCount > 1 ? '' : 's'} text and an answer
-            </span>
+            <span className="text-amber-300">{t.n('creator.needWork', incompleteCount)}</span>
           ) : (
-            <span className="text-emerald-300">Ready to launch</span>
+            <span className="text-emerald-300">{t('creator.ready')}</span>
           )}
           <span className="text-slate-600">
-            {questions.length} question{questions.length > 1 ? 's' : ''} ·{' '}
-            {Math.floor(totalSeconds / 60)}m {totalSeconds % 60}s of question time
+            {t.n('creator.count', questions.length)} ·{' '}
+            {t('creator.timeOf', { m: Math.floor(totalSeconds / 60), s: totalSeconds % 60 })}
           </span>
           <button
             type="button"
             onClick={loadSample}
             className="ml-auto text-slate-500 transition hover:text-brand-300"
           >
-            Load sample quiz
+            {t('creator.loadSample')}
           </button>
         </div>
 
@@ -270,14 +282,14 @@ export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdi
           <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 px-2 text-[13px] text-slate-500">
             <span>
               <span aria-hidden>↩ </span>
-              Picked up where you left off — saved {describeAge(restoredAt)} on this device.
+              {t('creator.restored', { age: describeAge(restoredAt, t) })}
             </span>
             <button
               type="button"
               onClick={startFresh}
               className="font-medium text-slate-400 underline underline-offset-2 transition hover:text-rose-300"
             >
-              Start a blank quiz
+              {t('creator.startBlank')}
             </button>
           </p>
         )}

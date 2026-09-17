@@ -73,7 +73,7 @@ Downloads folder: a `.json` with everything, and a `.csv` gradebook.
   }
 
   const save = (name, text, type) => {
-    const url = URL.createObjectURL(new Blob(['﻿' + text], { type }));
+    const url = URL.createObjectURL(new Blob(['\ufeff' + text], { type }));
     const a = document.createElement('a');
     a.href = url; a.download = name; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);

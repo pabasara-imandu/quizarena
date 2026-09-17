@@ -5,6 +5,7 @@ import { Modal } from '@/components/ui/SlideOver';
 import { Segmented } from '@/components/ui/Toggle';
 import type { Quiz } from '@/lib/types';
 import { serverUrl } from '@/lib/serverUrl';
+import { useT } from '@/lib/i18n';
 
 
 type Mode = 'import' | 'generate';
@@ -24,6 +25,7 @@ export function StartFromModal({
   onClose: () => void;
   onQuizLoaded: (quiz: Quiz) => void;
 }) {
+  const t = useT();
   const [mode, setMode] = useState<Mode>('import');
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -49,7 +51,7 @@ export function StartFromModal({
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage({ tone: 'error', text: data.error || 'That file could not be imported.' });
+        setMessage({ tone: 'error', text: data.error || t('sf.importFailed') });
         return;
       }
 
@@ -58,13 +60,13 @@ export function StartFromModal({
       if (data.warnings?.length) {
         setMessage({
           tone: 'warn',
-          text: 'Imported ' + data.importedRows + ' of ' + data.totalRows + ' rows.',
+          text: t('sf.imported', { n: data.importedRows, total: data.totalRows }),
         });
       } else {
         onClose();
       }
     } catch {
-      setMessage({ tone: 'error', text: 'Could not reach the server to import that file.' });
+      setMessage({ tone: 'error', text: t('sf.noServerImport') });
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -85,17 +87,17 @@ export function StartFromModal({
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage({ tone: 'error', text: data.error || 'Generation failed.' });
+        setMessage({ tone: 'error', text: data.error || t('sf.genFailed') });
         return;
       }
 
       onQuizLoaded(data.quiz);
       setMessage({
         tone: 'warn',
-        text: data.notice || 'Draft loaded — review every question before you run it.',
+        text: data.notice || t('sf.draftLoaded'),
       });
     } catch {
-      setMessage({ tone: 'error', text: 'Could not reach the server.' });
+      setMessage({ tone: 'error', text: t('sf.noServer') });
     } finally {
       setBusy(false);
     }
@@ -112,17 +114,17 @@ export function StartFromModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Start from something"
-      description="Import a spreadsheet you already have, or draft from a topic."
+      title={t('sf.title')}
+      description={t('sf.desc')}
       wide
     >
       <Segmented
         value={mode}
         onChange={setMode}
-        ariaLabel="How to start"
+        ariaLabel={t('sf.howAria')}
         options={[
-          { value: 'import', label: 'Import a file' },
-          { value: 'generate', label: 'Generate from a topic' },
+          { value: 'import', label: t('sf.import') },
+          { value: 'generate', label: t('sf.generate') },
         ]}
       />
 
@@ -166,11 +168,9 @@ export function StartFromModal({
             >
               <span className="text-4xl">{busy ? '⏳' : '📄'}</span>
               <span className="mt-3 font-display text-lg font-bold">
-                {busy ? 'Reading your file…' : 'Drop a spreadsheet here'}
+                {busy ? t('sf.reading') : t('sf.drop')}
               </span>
-              <span className="mt-1 text-sm text-slate-500">
-                or click to browse — .xlsx, .xls or .csv
-              </span>
+              <span className="mt-1 text-sm text-slate-500">{t('sf.browse')}</span>
             </button>
 
             <div className="mt-4 flex items-center justify-between gap-3">
@@ -179,35 +179,34 @@ export function StartFromModal({
                 href={serverUrl() + '/api/import/template.csv'}
                 download
               >
-                Download a template ↓
+                {t('sf.template')}
               </a>
               <details className="text-right text-xs text-slate-500">
-                <summary className="cursor-pointer hover:text-slate-300">Expected columns</summary>
+                <summary className="cursor-pointer hover:text-slate-300">{t('sf.expectedCols')}</summary>
               </details>
             </div>
 
             <div className="mt-3 rounded-xl bg-white/[0.03] px-4 py-3 text-xs leading-relaxed text-slate-500">
-              <b className="text-slate-400">Question Text</b> (required) ·{' '}
+              <b className="text-slate-400">Question Text</b> {t('sf.required')} ·{' '}
               <b className="text-slate-400">Question Type</b> ·{' '}
               <b className="text-slate-400">Option 1–5</b> ·{' '}
               <b className="text-slate-400">Correct Answer</b> ·{' '}
               <b className="text-slate-400">Time Limit</b> · <b className="text-slate-400">Points</b>{' '}
               · <b className="text-slate-400">Image Link</b>
               <br />
-              Correct Answer takes a letter (A–E), a number, TRUE/FALSE, or the answer text itself.
-              Short answers separate alternatives with <code className="text-slate-400">|</code>.
+              {t('sf.colsNote')}
             </div>
           </div>
         ) : (
           <div className="space-y-4">
             <div>
               <label className="field-label" htmlFor="gen-topic">
-                Topic
+                {t('sf.topic')}
               </label>
               <input
                 id="gen-topic"
                 className="field text-base"
-                placeholder="e.g. The water cycle"
+                placeholder={t('sf.topicPlaceholder')}
                 value={topic}
                 maxLength={200}
                 autoFocus
@@ -221,7 +220,7 @@ export function StartFromModal({
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="field-label" htmlFor="gen-count">
-                  How many questions
+                  {t('sf.howMany')}
                 </label>
                 <input
                   id="gen-count"
@@ -235,12 +234,12 @@ export function StartFromModal({
               </div>
               <div>
                 <label className="field-label" htmlFor="gen-grade">
-                  Year group <span className="text-slate-600">(optional)</span>
+                  {t('sf.yearGroup')} <span className="text-slate-600">{t('sf.optional')}</span>
                 </label>
                 <input
                   id="gen-grade"
                   className="field"
-                  placeholder="Year 8"
+                  placeholder={t('sf.yearPlaceholder')}
                   value={gradeLevel}
                   maxLength={40}
                   onChange={(e) => setGradeLevel(e.target.value)}
@@ -252,8 +251,8 @@ export function StartFromModal({
                 accepted spellings, explanations - is written in this language,
                 natively, not translated from English. */}
             <div>
-              <span className="field-label">Language</span>
-              <div className="segmented" role="radiogroup" aria-label="Quiz language">
+              <span className="field-label">{t('sf.language')}</span>
+              <div className="segmented" role="radiogroup" aria-label={t('sf.langAria')}>
                 {(
                   [
                     ['en', 'English'],
@@ -281,13 +280,10 @@ export function StartFromModal({
               disabled={busy || !topic.trim()}
               onClick={generate}
             >
-              {busy ? 'Drafting…' : '✨ Draft questions'}
+              {busy ? t('sf.drafting') : t('sf.draft')}
             </button>
 
-            <p className="field-hint">
-              Questions land in the editor as a draft and replace what is there now. Read every
-              answer before you run this with a class.
-            </p>
+            <p className="field-hint">{t('sf.draftNote')}</p>
           </div>
         )}
       </div>
@@ -300,12 +296,12 @@ export function StartFromModal({
               {warnings.slice(0, 5).map((w) => (
                 <li key={w}>{w}</li>
               ))}
-              {warnings.length > 5 && <li>…and {warnings.length - 5} more</li>}
+              {warnings.length > 5 && <li>{t('sf.andMore', { n: warnings.length - 5 })}</li>}
             </ul>
           )}
           {warnings.length > 0 && (
             <button type="button" className="btn-secondary btn-sm mt-3" onClick={onClose}>
-              Got it — open the editor
+              {t('sf.gotIt')}
             </button>
           )}
         </div>

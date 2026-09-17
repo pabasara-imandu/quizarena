@@ -10,6 +10,7 @@ import { StreakMeter } from '@/components/ui/StreakMeter';
 import { EmojiBar } from '@/components/ui/EmojiBar';
 import { ResultMark, RESULT_TONE, type ResultStatus } from '@/components/ui/ResultMark';
 import { useCountdown } from '@/lib/useCountdown';
+import { useT } from '@/lib/i18n';
 import type { LeaderboardRow, LiveQuestion, Phase, PlayerResult, Reaction } from '@/lib/types';
 
 interface Props {
@@ -105,9 +106,23 @@ export function StudentQuiz(props: Props) {
     onEnterFullscreen,
   } = props;
 
+  const t = useT();
   const blocked = locked || mustReturnToFullscreen;
   const kind = question?.type;
   const typed = kind === 'short' || kind === 'numeric';
+
+  // The small caption over the question: number, points, and what to do.
+  const caption = question
+    ? [
+        t('quiz.questionOf', { n: question.index + 1, total: question.total }),
+        kind === 'poll' ? t('quiz.captionPoll') : t('quiz.captionPts', { pts: question.points }),
+        typed ? t('quiz.captionTyped') : null,
+        kind === 'multiselect' ? t('quiz.captionMulti') : null,
+        kind === 'ordering' ? t('quiz.captionOrder') : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
 
   return (
     <div className="relative mx-auto flex min-h-[100dvh] max-w-2xl flex-col px-4 py-4">
@@ -116,7 +131,7 @@ export function StudentQuiz(props: Props) {
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">{nickname}</span>
         {strikes > 0 && strikeLimit > 0 && (
           <span className="rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-semibold text-amber-300">
-            {strikes}/{strikeLimit} warnings
+            {t('quiz.warnings', { strikes, limit: strikeLimit })}
           </span>
         )}
         <span className="rounded-full bg-brand-500/20 px-3 py-1 font-display text-sm font-bold nums text-brand-300">
@@ -141,13 +156,7 @@ export function StudentQuiz(props: Props) {
           <div className="surface p-5">
             <div className="flex items-start gap-4">
               <div className="min-w-0 flex-1">
-                <p className="text-xs uppercase tracking-wide text-slate-500">
-                  Question {question.index + 1} of {question.total}
-                  {kind === 'poll' ? ' · poll' : ' · ' + question.points + ' pts'}
-                  {typed && ' · type your answer'}
-                  {kind === 'multiselect' && ' · pick every right one'}
-                  {kind === 'ordering' && ' · put in order'}
-                </p>
+                <p className="text-xs uppercase tracking-wide text-slate-500">{caption}</p>
                 <h1 className="mt-1.5 font-display text-xl font-bold leading-snug sm:text-2xl">
                   {question.text}
                 </h1>
@@ -194,8 +203,8 @@ export function StudentQuiz(props: Props) {
                     onClick={onSubmitMulti}
                   >
                     {selectedIds.length === 0
-                      ? 'Pick every right answer'
-                      : 'Submit ' + selectedIds.length + (selectedIds.length === 1 ? ' answer' : ' answers')}
+                      ? t('quiz.pickEveryRight')
+                      : t.n('quiz.submitAnswers', selectedIds.length)}
                   </button>
                 )}
               </div>
@@ -215,11 +224,11 @@ export function StudentQuiz(props: Props) {
                  student sits still, and it used to be one grey line under a
                  dead grid. Say plainly that the answer is in and that the
                  hold-up is other people, not them. */
-              <WaitingStrip text="Answer locked in — waiting for the rest of the class…" />
+              <WaitingStrip text={t('quiz.lockedWaiting')} />
             ) : (
               <>
                 <p className="text-center text-sm text-slate-400">
-                  {kind === 'poll' ? 'There is no wrong answer here.' : 'Answer faster to score more points.'}
+                  {kind === 'poll' ? t('quiz.noWrongAnswer') : t('quiz.answerFaster')}
                 </p>
 
                 {/* Skip tells the server "I'm done thinking" so the room can
@@ -232,7 +241,7 @@ export function StudentQuiz(props: Props) {
                     onClick={onSkip}
                     className="btn-secondary mx-auto flex w-full max-w-xs justify-center"
                   >
-                    Skip this question →
+                    {t('quiz.skip')}
                   </button>
                 )}
               </>
@@ -260,11 +269,11 @@ export function StudentQuiz(props: Props) {
           // Late joiners and mid-reveal reconnects have no result of their own.
           // They get the answer and a holding message rather than a blank page.
           <Waiting
-            title="Answers are up"
+            title={t('quiz.answersUp')}
             detail={
               acceptedAnswers?.length
-                ? 'The answer was ' + acceptedAnswers[0] + '.'
-                : 'You joined partway through this one — you are in from the next question.'
+                ? t('quiz.answerWasDot', { answer: acceptedAnswers[0] })
+                : t('quiz.joinedPartway')
             }
           />
         ))}
@@ -275,24 +284,26 @@ export function StudentQuiz(props: Props) {
           <div className="flex flex-1 flex-col justify-center">
             <div className="surface p-5">
               <div className="mb-4 text-center">
-                <p className="text-sm text-slate-400">You are in</p>
+                <p className="text-sm text-slate-400">{t('quiz.yourPlace')}</p>
                 <p className="font-display text-5xl font-extrabold">
-                  {myRank ? ordinal(myRank.rank) : '—'}
+                  {myRank ? t.ordinal(myRank.rank) : '—'}
                 </p>
-                {myRank && <p className="text-sm text-slate-500">of {myRank.totalPlayers} players</p>}
+                {myRank && (
+                  <p className="text-sm text-slate-500">{t('quiz.ofPlayers', { n: myRank.totalPlayers })}</p>
+                )}
               </div>
               <Leaderboard rows={leaderboard} highlightId={playerId} />
             </div>
           </div>
         ) : (
-          <Waiting title="Scores are going up" detail="Look at the board at the front." />
+          <Waiting title={t('quiz.scoresGoingUp')} detail={t('quiz.lookAtBoard')} />
         ))}
 
       {/* Reactions between questions - never during a live question, where they
           would be one more thing competing with the clock. */}
       {allowReactions && (phase === 'reveal' || phase === 'leaderboard') && !blocked && (
         <div className="mt-5">
-          <EmojiBar onSend={onReact} label="React" />
+          <EmojiBar onSend={onReact} label={t('quiz.react')} />
         </div>
       )}
 
@@ -304,11 +315,11 @@ export function StudentQuiz(props: Props) {
           text={
             autoAdvancing
               ? question && question.index + 1 >= question.total
-                ? 'Finishing up…'
-                : 'Next question coming up…'
+                ? t('quiz.finishingUp')
+                : t('quiz.nextComing')
               : question && question.index + 1 >= question.total
-                ? 'Waiting for your teacher to finish the quiz…'
-                : 'Waiting for your teacher to start the next question…'
+                ? t('quiz.waitingFinish')
+                : t('quiz.waitingNext')
           }
         />
       )}
@@ -371,14 +382,17 @@ function Waiting({ title, detail }: { title: string; detail: string }) {
 }
 
 function LeadIn({ startAt, index }: { startAt: number | null; index: number }) {
+  const t = useT();
   const { seconds } = useCountdown(startAt, 3000);
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Question {index + 1}</p>
-      <p key={seconds} className="animate-pop font-display text-8xl font-extrabold text-brand-300">
-        {seconds > 0 ? seconds : 'Go!'}
+      <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
+        {t('quiz.questionN', { n: index + 1 })}
       </p>
-      <p className="mt-4 text-slate-400">Get ready…</p>
+      <p key={seconds} className="animate-pop font-display text-8xl font-extrabold text-brand-300">
+        {seconds > 0 ? seconds : t('quiz.go')}
+      </p>
+      <p className="mt-4 text-slate-400">{t('quiz.getReady')}</p>
     </div>
   );
 }
@@ -406,6 +420,7 @@ function Reveal({
   pollTotal: number;
   topThree: LeaderboardRow[];
 }) {
+  const t = useT();
   const status: ResultStatus = result.neutral && result.answered
     ? 'voted'
     : result.skipped
@@ -455,38 +470,47 @@ function Reveal({
 
         <div className="relative">
           <ResultMark status={status} />
-          <h1 className={'mt-4 font-display text-3xl font-extrabold ' + tone.text}>{tone.title}</h1>
+          <h1 className={'mt-4 font-display text-3xl font-extrabold ' + tone.text}>
+            {t(('result.' + status) as 'result.correct')}
+          </h1>
 
         {result.neutral ? (
-          <p className="mt-2 text-slate-400">Polls don't score. Your streak is safe.</p>
+          <p className="mt-2 text-slate-400">{t('reveal.pollNoScore')}</p>
         ) : result.pointsEarned > 0 ? (
           <p className="mt-2 font-display text-2xl font-bold text-emerald-300">
             +{result.pointsEarned.toLocaleString()}
           </p>
         ) : (
-          <p className="mt-2 text-slate-400">No points this round</p>
+          <p className="mt-2 text-slate-400">{t('reveal.noPoints')}</p>
         )}
 
         {/* Show the maths so speed and streak feel earned, not arbitrary. */}
         {result.correct && (
           <p className="mt-1 text-xs text-slate-400">
-            {result.basePoints ? result.basePoints + ' base' : ''}
-            {result.speedComponent ? ' + ' + result.speedComponent + ' speed' : ''}
-            {result.multiplier > 1 ? ' × ' + result.multiplier + ' streak' : ''}
+            {result.basePoints ? t('reveal.mathBase', { n: result.basePoints }) : ''}
+            {result.speedComponent ? ' ' + t('reveal.mathSpeed', { n: result.speedComponent }) : ''}
+            {result.multiplier > 1 ? ' ' + t('reveal.mathStreak', { m: result.multiplier }) : ''}
           </p>
         )}
 
         {yourText && !result.neutral && (
           <p className="mt-3 text-sm text-slate-400">
-            You {result.submittedOrder ? 'put' : result.chosenOptionIds ? 'picked' : 'wrote'}{' '}
-            <b className="text-slate-200">{yourText}</b>
+            {t.rich(
+              result.submittedOrder
+                ? 'reveal.youPut'
+                : result.chosenOptionIds
+                  ? 'reveal.youPicked'
+                  : 'reveal.youWrote',
+              { answer: <b className="text-slate-200">{yourText}</b> }
+            )}
           </p>
         )}
 
         {!result.correct && !result.neutral && correctText && (
-          <p className="mt-4 rounded-xl bg-white/5 px-4 py-3 text-sm">
-            <span className="text-slate-400">The answer was </span>
-            <b className="font-semibold">{correctText}</b>
+          <p className="mt-4 rounded-xl bg-white/5 px-4 py-3 text-sm text-slate-400">
+            {t.rich('reveal.answerWas', {
+              answer: <b className="font-semibold text-slate-100">{correctText}</b>,
+            })}
           </p>
         )}
 
@@ -495,7 +519,7 @@ function Reveal({
         {explanation && (
           <p className="mt-4 rounded-xl border border-brand-400/20 bg-brand-500/[0.08] px-4 py-3 text-left text-sm leading-relaxed text-slate-200">
             <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-brand-300">
-              Why
+              {t('reveal.why')}
             </span>
             {explanation}
           </p>
@@ -518,7 +542,7 @@ function Reveal({
                   <span className="relative flex items-center gap-2">
                     <span className="min-w-0 flex-1 truncate font-medium">
                       {o.text}
-                      {mine && <span className="ml-2 text-[11px] uppercase text-brand-300">you</span>}
+                      {mine && <span className="ml-2 text-[11px] uppercase text-brand-300">{t('ui.you')}</span>}
                     </span>
                     <span className="shrink-0 text-slate-400 nums">{pct}%</span>
                   </span>
@@ -537,23 +561,23 @@ function Reveal({
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-white/[0.05] px-3 py-3">
             <p className="font-display text-2xl font-bold nums">
-              {result.rank ? ordinal(result.rank) : '—'}
+              {result.rank ? t.ordinal(result.rank) : '—'}
             </p>
             <p className="text-xs text-slate-400">
-              your rank{result.totalPlayers ? ' of ' + result.totalPlayers : ''}
+              {result.totalPlayers ? t('reveal.yourRankOf', { n: result.totalPlayers }) : t('reveal.yourRank')}
             </p>
           </div>
           <div className="rounded-xl bg-white/[0.05] px-3 py-3">
             <p className="font-display text-2xl font-bold nums text-brand-300">
               {result.score.toLocaleString()}
             </p>
-            <p className="text-xs text-slate-400">total score</p>
+            <p className="text-xs text-slate-400">{t('reveal.totalScore')}</p>
           </div>
         </div>
 
           {topThree.length > 0 && (
             <p className="mt-5 text-xs text-slate-500">
-              Leading: {topThree.map((p) => p.nickname).join(' · ')}
+              {t('reveal.leading', { names: topThree.map((p) => p.nickname).join(' · ') })}
             </p>
           )}
         </div>
@@ -563,18 +587,17 @@ function Reveal({
 }
 
 function FullscreenOverlay({ onEnter, live }: { onEnter: () => void; live: boolean }) {
+  const t = useT();
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/95 px-6 backdrop-blur">
       <div className="surface-solid max-w-sm p-6 text-center">
         <p className="text-5xl">⛶</p>
-        <h2 className="mt-3 font-display text-2xl font-bold">Full-screen required</h2>
+        <h2 className="mt-3 font-display text-2xl font-bold">{t('fs.required')}</h2>
         <p className="mt-2 text-sm leading-relaxed text-slate-400">
-          {live
-            ? 'Your quiz is paused because you left full-screen. The clock is still running - go back in to keep answering.'
-            : 'Return to full-screen to carry on. Your teacher has been notified.'}
+          {live ? t('fs.pausedLive') : t('fs.return')}
         </p>
         <button className="btn-primary mt-5 w-full py-3" type="button" onClick={onEnter}>
-          Back to full-screen
+          {t('fs.back')}
         </button>
       </div>
     </div>
@@ -582,23 +605,18 @@ function FullscreenOverlay({ onEnter, live }: { onEnter: () => void; live: boole
 }
 
 function LockedOverlay({ strikes, strikeLimit }: { strikes: number; strikeLimit: number }) {
+  const t = useT();
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/95 px-6 backdrop-blur">
       <div className="surface-solid max-w-sm border-rose-400/30 p-6 text-center">
         <p className="text-5xl">✋</p>
-        <h2 className="mt-3 font-display text-2xl font-bold text-rose-200">Paused</h2>
+        <h2 className="mt-3 font-display text-2xl font-bold text-rose-200">{t('locked.title')}</h2>
         <p className="mt-2 text-sm leading-relaxed text-slate-400">
-          You have {strikes} of {strikeLimit} warnings for leaving the quiz screen. Your teacher can
-          let you back in from their dashboard.
+          {t('locked.body', { strikes, limit: strikeLimit })}
         </p>
-        <p className="mt-4 text-xs text-slate-500">Speak to your teacher, then wait here.</p>
+        <p className="mt-4 text-xs text-slate-500">{t('locked.wait')}</p>
       </div>
     </div>
   );
 }
 
-function ordinal(n: number) {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}

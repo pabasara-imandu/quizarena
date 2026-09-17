@@ -7,6 +7,7 @@ import { Leaderboard } from '@/components/ui/Leaderboard';
 import { QuestionMedia } from '@/components/ui/QuestionMedia';
 import { ReactionOverlay } from '@/components/host/ReactionOverlay';
 import { Segmented } from '@/components/ui/Toggle';
+import { useT, type Translator } from '@/lib/i18n';
 import type {
   HostSync,
   IntegrityEntry,
@@ -61,15 +62,8 @@ interface Props {
   busy: boolean;
 }
 
-const INTEGRITY_LABEL: Record<IntegrityEntry['type'], string> = {
-  tab_hidden: 'left the tab',
-  tab_visible: 'came back',
-  fullscreen_exit: 'exited full-screen',
-  fullscreen_enter: 're-entered full-screen',
-  window_blur: 'switched app',
-  copy_attempt: 'tried to copy',
-  devtools_suspected: 'devtools suspected',
-};
+const integrityLabel = (t: Translator, type: IntegrityEntry['type']) =>
+  t(('integ.' + type) as 'integ.tab_hidden');
 
 const SERIOUS = new Set(['tab_hidden', 'fullscreen_exit', 'copy_attempt', 'devtools_suspected']);
 
@@ -93,6 +87,7 @@ export function HostLive({
   onClearStrikes,
   busy,
 }: Props) {
+  const t = useT();
   const [panel, setPanel] = useState<'scores' | 'activity'>('scores');
 
   const isLeadIn = phase === 'leadIn';
@@ -122,14 +117,14 @@ export function HostLive({
           : '';
 
   const nextLabel = isLeadIn
-    ? 'Start now'
+    ? t('live.startNow')
     : phase === 'question'
-      ? 'Close question'
+      ? t('live.closeQuestion')
       : phase === 'reveal' && showLeaderboard
-        ? 'Show leaderboard'
+        ? t('live.showLeaderboard')
         : reveal?.isLastQuestion
-          ? 'Finish & see results'
-          : 'Next question →';
+          ? t('live.finish')
+          : t('live.next');
 
   return (
     <>
@@ -145,13 +140,13 @@ export function HostLive({
             /* The lead-in used to keep showing the previous question for three
                seconds. It now shows only what is true: what is coming next. */
             <div className="flex flex-col items-center px-6 py-20 text-center">
-              <p className="eyebrow">Coming up</p>
+              <p className="eyebrow">{t('live.comingUp')}</p>
               <p className="mt-3 font-display text-5xl font-extrabold sm:text-6xl">
-                Question {(pendingIndex ?? 0) + 1}
+                {t('live.questionN', { n: (pendingIndex ?? 0) + 1 })}
                 <span className="text-slate-700"> / {totalQuestions}</span>
               </p>
               <p className="mt-5 animate-breathe font-display text-lg font-semibold text-brand-300">
-                Get ready…
+                {t('live.getReady')}
               </p>
             </div>
           ) : (
@@ -162,15 +157,17 @@ export function HostLive({
                     <span className="chip-brand nums">
                       {(question?.index ?? 0) + 1} / {question?.total ?? totalQuestions}
                     </span>
-                    {question && !isPoll && <span className="chip-neutral nums">{question.points} pts</span>}
-                    {kind === 'short' && <span className="chip-good">Short answer</span>}
-                    {kind === 'numeric' && <span className="chip-good">Number</span>}
-                    {kind === 'ordering' && <span className="chip-warn">Put in order</span>}
-                    {kind === 'multiselect' && <span className="chip-brand">Select all</span>}
-                    {isPoll && <span className="chip-neutral">Poll</span>}
+                    {question && !isPoll && (
+                      <span className="chip-neutral nums">{t('live.pts', { n: question.points })}</span>
+                    )}
+                    {kind === 'short' && <span className="chip-good">{t('live.shortAnswer')}</span>}
+                    {kind === 'numeric' && <span className="chip-good">{t('live.number')}</span>}
+                    {kind === 'ordering' && <span className="chip-warn">{t('live.putInOrder')}</span>}
+                    {kind === 'multiselect' && <span className="chip-brand">{t('live.selectAll')}</span>}
+                    {isPoll && <span className="chip-neutral">{t('live.poll')}</span>}
                   </div>
                   <h2 className="mt-3 font-display text-2xl font-bold leading-tight sm:text-4xl">
-                    {question?.text ?? 'Getting ready…'}
+                    {question?.text ?? t('live.gettingReady')}
                   </h2>
                 </div>
 
@@ -186,7 +183,7 @@ export function HostLive({
           {/* Answer progress: the single most useful number while hosting. */}
           <div className="border-t border-white/[0.06] px-5 py-4 sm:px-7">
             <div className="mb-2 flex items-baseline justify-between">
-              <span className="text-sm text-slate-400">Answers in</span>
+              <span className="text-sm text-slate-400">{t('live.answersIn')}</span>
               <span className="font-display text-xl font-bold nums">
                 {answered}
                 <span className="text-slate-600"> / {total}</span>
@@ -219,7 +216,11 @@ export function HostLive({
           <div className="surface space-y-4 p-5">
             <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/[0.08] px-4 py-3">
               <p className="eyebrow text-emerald-400/70">
-                {kind === 'short' ? 'Accepted answers' : kind === 'numeric' ? 'Answer' : 'Correct order'}
+                {kind === 'short'
+                  ? t('live.acceptedAnswers')
+                  : kind === 'numeric'
+                    ? t('live.answer')
+                    : t('live.correctOrder')}
               </p>
               <p className="mt-1 font-display text-lg font-semibold text-emerald-100">
                 {answerKey || '—'}
@@ -238,7 +239,7 @@ export function HostLive({
             aloud while the class is still looking at the reveal. */}
         {showingReveal && (reveal?.explanation || question?.explanation) && (
           <div className="rounded-2xl border border-brand-400/20 bg-brand-500/[0.07] px-5 py-4">
-            <p className="eyebrow text-brand-300/80">Why</p>
+            <p className="eyebrow text-brand-300/80">{t('live.why')}</p>
             <p className="mt-1 text-[15px] leading-relaxed text-slate-200">
               {reveal?.explanation ?? question?.explanation}
             </p>
@@ -248,18 +249,18 @@ export function HostLive({
         {showingReveal && reveal && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {isPoll ? (
-              <Stat label="Votes" value={String(reveal.answeredTotal)} />
+              <Stat label={t('live.votes')} value={String(reveal.answeredTotal)} />
             ) : (
               <Stat
-                label="Correct"
+                label={t('live.correct')}
                 value={Math.round(reveal.accuracy * 100) + '%'}
                 tone={reveal.accuracy < 0.4 ? 'bad' : reveal.accuracy > 0.75 ? 'good' : 'mid'}
               />
             )}
-            <Stat label="Answered" value={reveal.answeredTotal + '/' + reveal.playerCount} />
-            <Stat label="Skipped" value={String(reveal.skippedTotal ?? 0)} />
+            <Stat label={t('live.answered')} value={reveal.answeredTotal + '/' + reveal.playerCount} />
+            <Stat label={t('live.skipped')} value={String(reveal.skippedTotal ?? 0)} />
             <Stat
-              label="Avg time"
+              label={t('live.avgTime')}
               value={
                 reveal.averageResponseMs == null
                   ? '—'
@@ -280,10 +281,10 @@ export function HostLive({
         <Segmented
           value={panel}
           onChange={setPanel}
-          ariaLabel="Sidebar panel"
+          ariaLabel={t('live.sidebarAria')}
           options={[
-            { value: 'scores', label: 'Scores' },
-            { value: 'activity', label: 'Activity', badge: integrity.length },
+            { value: 'scores', label: t('live.scores') },
+            { value: 'activity', label: t('live.activity'), badge: integrity.length },
           ]}
         />
 
@@ -294,7 +295,7 @@ export function HostLive({
             <div className="space-y-3">
               {paused.length > 0 && (
                 <div className="rounded-xl border border-rose-400/25 bg-rose-500/[0.08] p-2.5">
-                  <p className="eyebrow mb-1.5 text-rose-300/80">Paused — needs you</p>
+                  <p className="eyebrow mb-1.5 text-rose-300/80">{t('live.pausedNeedsYou')}</p>
                   <ul className="space-y-1">
                     {paused.map((p) => (
                       <li key={p.id} className="flex items-center gap-2 text-sm">
@@ -304,7 +305,7 @@ export function HostLive({
                           className="shrink-0 rounded-lg bg-emerald-500/20 px-2 py-1 text-[11px] font-semibold text-emerald-300 transition hover:bg-emerald-500/30"
                           onClick={() => onClearStrikes(p.id)}
                         >
-                          let back in
+                          {t('live.letBackIn')}
                         </button>
                       </li>
                     ))}
@@ -350,16 +351,16 @@ export function HostLive({
                         })}
                       </span>
                       <span className="min-w-0 flex-1 leading-snug">
-                        <b className="font-semibold">{e.nickname}</b> {INTEGRITY_LABEL[e.type]}
+                        <b className="font-semibold">{e.nickname}</b> {integrityLabel(t, e.type)}
                         {e.meta?.hiddenMs ? ' (' + Math.round(e.meta.hiddenMs / 1000) + 's)' : ''}
                       </span>
                     </li>
                   ))}
                 {integrity.length === 0 && (
                   <li className="py-10 text-center text-slate-600">
-                    Nothing flagged.
+                    {t('live.nothingFlagged')}
                     <br />
-                    Everyone is on task.
+                    {t('live.onTask')}
                   </li>
                 )}
               </ul>
@@ -381,8 +382,8 @@ export function HostLive({
               move on now should not have to wait out a timer they set for the
               class's benefit. */}
           {autoAdvance && showingReveal && (
-            <span className="chip-good shrink-0 animate-breathe" title="This room advances on its own">
-              Auto
+            <span className="chip-good shrink-0 animate-breathe" title={t('live.autoTitle')}>
+              {t('live.auto')}
             </span>
           )}
           {phase === 'question' && (
@@ -392,8 +393,8 @@ export function HostLive({
               onClick={onSkipTimer}
               disabled={busy}
             >
-              <span className="sm:hidden">Skip timer</span>
-              <span className="hidden sm:inline">Skip the timer</span>
+              <span className="sm:hidden">{t('live.skipTimer')}</span>
+              <span className="hidden sm:inline">{t('live.skipTheTimer')}</span>
             </button>
           )}
           {/* Grows to fill a phone's width: the one control the host reaches
@@ -407,8 +408,8 @@ export function HostLive({
             <span className="truncate">{nextLabel}</span>
           </button>
           <button className="btn-danger ml-auto shrink-0" type="button" onClick={onEnd} disabled={busy}>
-            <span className="sm:hidden">End</span>
-            <span className="hidden sm:inline">End quiz</span>
+            <span className="sm:hidden">{t('live.end')}</span>
+            <span className="hidden sm:inline">{t('live.endQuiz')}</span>
           </button>
         </div>
       </div>
@@ -424,8 +425,9 @@ function TextDistribution({
   responses: TextResponse[] | null;
   answered: number;
 }) {
+  const t = useT();
   if (!responses || responses.length === 0) {
-    return <p className="py-4 text-center text-sm text-slate-600">No written answers came in.</p>;
+    return <p className="py-4 text-center text-sm text-slate-600">{t('live.noWritten')}</p>;
   }
 
   return (

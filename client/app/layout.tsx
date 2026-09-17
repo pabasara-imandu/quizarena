@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Outfit } from 'next/font/google';
+import { Inter, Noto_Sans_Sinhala, Outfit } from 'next/font/google';
 import './globals.css';
 import { SocketProvider } from '@/lib/socket';
+import { LanguageProvider } from '@/lib/i18n';
 
 // Outfit for display (geometric, friendly, reads well huge on a projector),
 // Inter for everything else. Both self-hosted by next/font - no render-blocking
@@ -12,6 +13,17 @@ const display = Outfit({
   variable: '--font-display',
   weight: ['600', '700', '800'],
   display: 'swap',
+});
+// Neither of those has a Sinhala glyph. This sits last in both font stacks,
+// so a browser reaches for it only for the characters the others lack - Latin
+// text keeps its face, Sinhala text gets a proper one instead of whatever the
+// phone has installed. Not preloaded: an English visitor never downloads it.
+const sinhala = Noto_Sans_Sinhala({
+  subsets: ['sinhala'],
+  variable: '--font-sinhala',
+  weight: ['400', '500', '600', '700', '800'],
+  display: 'swap',
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -30,9 +42,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={sans.variable + ' ' + display.variable}>
+    <html lang="en" className={sans.variable + ' ' + display.variable + ' ' + sinhala.variable}>
       <body className="min-h-screen font-sans">
-        <SocketProvider>{children}</SocketProvider>
+        <LanguageProvider>
+          <SocketProvider>{children}</SocketProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

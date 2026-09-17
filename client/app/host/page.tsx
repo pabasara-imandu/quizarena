@@ -24,11 +24,18 @@ import { PastResults } from '@/components/host/PastResults';
 import { archiveResults } from '@/lib/resultsArchive';
 import { HostIdentity } from '@/components/host/HostIdentity';
 import { loadIdentity, signInConfigured, type HostIdentity as Identity } from '@/lib/googleAuth';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
+import { describeError, useT } from '@/lib/i18n';
 
 const STORE_KEY = 'quizarena.host';
 
 export default function HostPage() {
   const { status, emit, rtt, connectTo, serverUrl } = useSocket();
+  const t = useT();
+  // Callbacks read the translator through a ref so a language switch does
+  // not change their identity and re-run the effects that depend on them.
+  const tRef = useRef(t);
+  tRef.current = t;
 
   const [pin, setPin] = useState<string | null>(null);
   const [hostToken, setHostToken] = useState<string | null>(null);
@@ -199,10 +206,10 @@ export default function HostPage() {
       setError(null);
       try {
         const res = await emit<any>(event, payload);
-        if (!res?.ok) setError(res?.message || 'That did not work.');
+        if (!res?.ok) setError(describeError(tRef.current, res, 'host.didNotWork'));
         return res;
       } catch (err) {
-        setError((err as Error).message);
+        setError(describeError(tRef.current, err as Error, 'host.didNotWork'));
         return null;
       } finally {
         setBusy(false);
@@ -224,7 +231,7 @@ export default function HostPage() {
       await connectTo(picked.url);
     } catch (err) {
       setBusy(false);
-      setError((err as Error).message || 'No quiz server answered. Try again in a moment.');
+      setError(describeError(t, err as Error, 'host.noServer'));
       return;
     } finally {
       setBusy(false);
@@ -246,11 +253,7 @@ export default function HostPage() {
     // The server is the authority: if it did not accept the token, say so
     // rather than leaving a name in the corner that bought nothing.
     if (identity && res.signInAvailable && !res.host?.verified) {
-      setError(
-        'Your Google sign-in had expired, so this room is limited to ' +
-          res.maxPlayers +
-          ' students. Sign in again before the next quiz for a full-size room.'
-      );
+      setError(t('host.expiredSignIn', { max: res.maxPlayers }));
       setIdentity(null);
     }
     sessionStorage.setItem(
@@ -335,7 +338,7 @@ export default function HostPage() {
         <Link href="/" className="font-display text-lg font-extrabold tracking-tight">
           Quiz<span className="text-brand-400">Arena</span>
         </Link>
-        <span className="chip-neutral text-[10px] uppercase tracking-[0.14em]">Host</span>
+        <span className="chip-neutral text-[10px] uppercase tracking-[0.14em]">{t('host.badge')}</span>
 
         {pin && (
           <span className="chip-brand font-display text-sm font-bold tracking-[0.2em] nums">
@@ -344,6 +347,7 @@ export default function HostPage() {
         )}
 
         <div className="ml-auto flex items-center gap-3 text-xs text-slate-500">
+          <LanguageSwitcher />
           <HostIdentity identity={identity} onChange={setIdentity} />
           <span
             className={
@@ -361,9 +365,7 @@ export default function HostPage() {
 
       {status !== 'connected' && !pin && (
         <div className="surface mb-5 border-amber-400/25 bg-amber-500/[0.08] p-4 text-sm text-amber-200">
-          {status === 'connecting'
-            ? 'Connecting to the quiz server…'
-            : 'Lost the connection to the quiz server. Reconnecting automatically…'}
+          {status === 'connecting' ? t('host.connecting') : t('host.lost')}
         </div>
       )}
 

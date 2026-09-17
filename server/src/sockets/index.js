@@ -25,7 +25,7 @@ import {
 export const ALLOWED_REACTIONS = ['👍', '🔥', '😂', '😮', '🎉', '❤️', '🤔', '😭'];
 
 const ok = (data = {}) => ({ ok: true, ...data });
-const fail = (message, code = 'error') => ({ ok: false, code, message });
+const fail = (message, code = 'error', extra = {}) => ({ ok: false, code, message, ...extra });
 
 /** Callback-safety: a client can omit the ack, and we must not throw on it. */
 const respond = (cb, payload) => {
@@ -335,7 +335,8 @@ export function registerSocketHandlers(io) {
                 room.maxPlayers +
                 ' students).' +
                 (room.host.verified ? '' : ' The host can sign in to allow more.'),
-              'full'
+              'full',
+              { maxPlayers: room.maxPlayers }
             )
           );
         }
@@ -345,7 +346,9 @@ export function registerSocketHandlers(io) {
       let nickname = returning?.nickname;
       if (!returning) {
         nickname = sanitizeNickname(payload?.nickname, config.maxNicknameLength);
-        if (!nickname) return respond(cb, fail('Pick a nickname with at least 2 characters.'));
+        if (!nickname) {
+          return respond(cb, fail('Pick a nickname with at least 2 characters.', 'nickname_short'));
+        }
         const taken = [...room.players.values()].some(
           (p) => p.nickname.toLowerCase() === nickname.toLowerCase()
         );

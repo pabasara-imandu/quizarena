@@ -7,6 +7,7 @@ import {
   signInConfigured,
   type HostIdentity as Identity,
 } from '@/lib/googleAuth';
+import { useT } from '@/lib/i18n';
 
 /**
  * The corner of the host page that says who you are, if you chose to say.
@@ -21,6 +22,7 @@ export function HostIdentity({
   identity: Identity | null;
   onChange: (identity: Identity | null) => void;
 }) {
+  const t = useT();
   const slot = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,7 +50,7 @@ export function HostIdentity({
         key="anonymous"
         ref={slot}
         className="gsi-slot min-h-[32px] min-w-[120px]"
-        aria-label="Sign in with Google"
+        aria-label={t('identity.signInAria')}
       />
     );
   }
@@ -76,7 +78,7 @@ export function HostIdentity({
           onChange(null);
         }}
       >
-        sign out
+        {t('identity.signOut')}
       </button>
     </div>
   );

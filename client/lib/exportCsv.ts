@@ -27,7 +27,7 @@ export function csvCell(value: unknown): string {
 
 export function toCsv(rows: unknown[][]): string {
   // A BOM makes Excel read the file as UTF-8 rather than mangling accents.
-  return '﻿' + rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
+  return '\ufeff' + rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
 }
 
 const STATUS_LABEL: Record<string, string> = {

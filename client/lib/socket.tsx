@@ -144,7 +144,12 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
         const giveUp = setTimeout(() => {
           s.close();
-          reject(new Error('That quiz server did not answer. It may be waking up - try again.'));
+          reject(
+            Object.assign(
+              new Error('That quiz server did not answer. It may be waking up - try again.'),
+              { code: 'server_asleep' }
+            )
+          );
         }, 45000);
 
         s.once('connect', () => {
@@ -175,7 +180,12 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       const s = socketRef.current;
       if (!s) return reject(new Error('Socket is not ready yet.'));
       s.timeout(timeoutMs).emit(event, payload ?? {}, (err: unknown, res: T) => {
-        if (err) reject(new Error('The server did not respond. Check your connection.'));
+        if (err)
+          reject(
+            Object.assign(new Error('The server did not respond. Check your connection.'), {
+              code: 'no_response',
+            })
+          );
         else resolve(res);
       });
     });

@@ -17,6 +17,7 @@ import type {
 } from '@/lib/types';
 
 import { findServerForPin } from '@/lib/servers';
+import { describeError, useT } from '@/lib/i18n';
 
 const STORE_KEY = 'quizarena.player';
 
@@ -40,6 +41,11 @@ export default function JoinPage() {
 function StudentSession() {
   const params = useSearchParams();
   const { status, emit, connectTo, serverUrl } = useSocket();
+  const t = useT();
+  // Read through a ref inside the callbacks below, so switching language does
+  // not hand them a new identity and re-trigger the auto-rejoin effect.
+  const tRef = useRef(t);
+  tRef.current = t;
 
   const [session, setSession] = useState<Session | null>(null);
   const [phase, setPhase] = useState<Phase>('lobby');
@@ -178,7 +184,7 @@ function StudentSession() {
           : await findServerForPin(pin);
 
         if (!home) {
-          setError('No room with that PIN. Check the digits on the board.');
+          setError(tRef.current('join.noRoomCheck'));
           return;
         }
         if (home.url !== serverUrl) await connectTo(home.url);
@@ -191,7 +197,7 @@ function StudentSession() {
         });
 
         if (!res?.ok) {
-          setError(res?.message || 'Could not join that room.');
+          setError(describeError(tRef.current, res, 'join.couldNotJoin', { max: res?.maxPlayers ?? '' }));
           if (['no_room', 'forbidden', 'ended'].includes(res?.code)) {
             localStorage.removeItem(STORE_KEY);
             setSession(null);
@@ -210,7 +216,7 @@ function StudentSession() {
         setSession(next);
         applyState(res.state);
       } catch (err) {
-        setError((err as Error).message);
+        setError(describeError(tRef.current, err as Error, 'join.couldNotJoin'));
       } finally {
         setBusy(false);
       }
@@ -365,21 +371,21 @@ function StudentSession() {
   useSocketEvent<void>('player:strikesCleared', () => {
     setStrikes(0);
     setLocked(false);
-    flashNotice('Your teacher cleared your warnings. You are back in.');
+    flashNotice(t('notice.warningsCleared'));
   });
 
   useSocketEvent<any>('player:kicked', () => {
     localStorage.removeItem(STORE_KEY);
     setSession(null);
-    setError('You were removed from the room by the host.');
+    setError(t('join.kicked'));
   });
 
   useSocketEvent<void>('host:disconnected', () => {
-    flashNotice('The host has briefly lost connection. Hang on…', 5000);
+    flashNotice(t('notice.hostLost'), 5000);
   });
 
   useSocketEvent<void>('host:reconnected', () => {
-    flashNotice('The host is back.', 2500);
+    flashNotice(t('notice.hostBack'), 2500);
     resync();
   });
 
@@ -413,14 +419,14 @@ function StudentSession() {
           setSubmittedOrder(null);
           setSubmittedText(null);
           if (res?.code === 'locked') setLocked(true);
-          else if (res?.message) flashNotice(res.message, 2500);
+          else if (res?.message) flashNotice(describeError(tRef.current, res, 'notice.notReached'), 2500);
         }
       } catch {
         setHasAnswered(false);
         setSelectedId(null);
         setSubmittedOrder(null);
         setSubmittedText(null);
-        flashNotice('That did not reach the server. Try again.', 2500);
+        flashNotice(tRef.current('notice.notReached'), 2500);
       }
     },
     [emit, hasAnswered, locked, flashNotice]
@@ -442,7 +448,7 @@ function StudentSession() {
         initialPin={params.get('pin') ?? undefined}
         onJoin={(pin, nickname) => doJoin(pin, nickname)}
         busy={busy || status !== 'connected'}
-        error={error ?? (status === 'connecting' ? 'Connecting…' : null)}
+        error={error ?? (status === 'connecting' ? t('join.connecting') : null)}
       />
     );
   }
@@ -456,7 +462,7 @@ function StudentSession() {
       )}
       {status !== 'connected' && (
         <div className="fixed inset-x-0 top-0 z-40 bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-black">
-          Reconnecting… your score is safe.
+          {t('notice.reconnecting')}
         </div>
       )}
 
@@ -544,11 +550,12 @@ function FinalScreen({
   data: any;
   onLeave: () => void;
 }) {
+  const t = useT();
   const you = data.you;
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col items-center justify-center px-5 py-10 text-center">
       <div className="surface w-full animate-pop p-7">
-        <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Final result</p>
+        <p className="text-sm uppercase tracking-[0.3em] text-slate-400">{t('final.title')}</p>
         <p className="mt-3 text-6xl">
           {you?.rank === 1 ? '🏆' : you?.rank && you.rank <= 3 ? '🥳' : '👏'}
         </p>
@@ -560,16 +567,16 @@ function FinalScreen({
               {you.score.toLocaleString()}
             </p>
             <p className="text-sm text-slate-400">
-              Rank {you.rank} · {you.correctCount}/{you.answeredCount} correct
+              {t('final.rankCorrect', { rank: you.rank, correct: you.correctCount, answered: you.answeredCount })}
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-xl bg-white/[0.05] px-3 py-3">
                 <p className="font-display text-xl font-bold">{Math.round(you.accuracy * 100)}%</p>
-                <p className="text-xs text-slate-400">accuracy</p>
+                <p className="text-xs text-slate-400">{t('final.accuracy')}</p>
               </div>
               <div className="rounded-xl bg-white/[0.05] px-3 py-3">
                 <p className="font-display text-xl font-bold">{you.bestStreak}</p>
-                <p className="text-xs text-slate-400">best streak</p>
+                <p className="text-xs text-slate-400">{t('final.bestStreak')}</p>
               </div>
             </div>
           </>
@@ -577,7 +584,7 @@ function FinalScreen({
 
         {data.podium?.length > 0 && (
           <div className="mt-6 text-sm text-slate-400">
-            <p className="mb-1 text-xs uppercase tracking-wide text-slate-500">Top of the class</p>
+            <p className="mb-1 text-xs uppercase tracking-wide text-slate-500">{t('final.topOfClass')}</p>
             {data.podium.map((p: any) => (
               <p key={p.rank}>
                 {p.rank}. {p.nickname} — {p.score.toLocaleString()}
@@ -587,7 +594,7 @@ function FinalScreen({
         )}
 
         <button className="btn-ghost mt-6 w-full" type="button" onClick={onLeave}>
-          Leave
+          {t('final.leave')}
         </button>
       </div>
     </div>

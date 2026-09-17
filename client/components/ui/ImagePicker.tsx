@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState } from 'react';
 import { ACCEPTED_TYPES, uploadImage } from '@/lib/imageUpload';
+import { useT } from '@/lib/i18n';
 
 /**
  * Attach an image: upload from the device, or paste a URL.
@@ -15,7 +16,7 @@ import { ACCEPTED_TYPES, uploadImage } from '@/lib/imageUpload';
 export function ImagePicker({
   value,
   onChange,
-  label = 'Image',
+  label: labelProp,
   compact = false,
 }: {
   value?: string | null;
@@ -23,6 +24,8 @@ export function ImagePicker({
   label?: string;
   compact?: boolean;
 }) {
+  const t = useT();
+  const label = labelProp ?? t('editor.image');
   const inputId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -43,11 +46,20 @@ export function ImagePicker({
           ' KB' +
           (result.width ? ' · ' + result.width + '×' + result.height : '') +
           (file.size > result.bytes * 1.5
-            ? ' (shrunk from ' + Math.round(file.size / 1024) + ' KB)'
+            ? ' ' + t('img.shrunk', { kb: Math.round(file.size / 1024) })
             : '')
       );
     } catch (err) {
-      setError((err as Error).message);
+      const code = (err as { code?: string }).code;
+      setError(
+        code === 'not_image'
+          ? t('img.err.notImage')
+          : code === 'failed'
+            ? t('img.err.failed')
+            : code === 'too_big'
+              ? t('img.err.tooBig')
+              : (err as Error).message
+      );
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -83,7 +95,7 @@ export function ImagePicker({
             }}
           />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] text-slate-400">{label} attached</p>
+            <p className="truncate text-[13px] text-slate-400">{t('img.attached', { label })}</p>
             {note && <p className="mt-0.5 text-[11px] text-slate-600">{note}</p>}
             <div className="mt-1.5 flex flex-wrap gap-2">
               <button
@@ -92,7 +104,7 @@ export function ImagePicker({
                 onClick={() => fileRef.current?.click()}
                 disabled={busy}
               >
-                Replace
+                {t('img.replace')}
               </button>
               <button
                 type="button"
@@ -103,7 +115,7 @@ export function ImagePicker({
                   setError(null);
                 }}
               >
-                Remove
+                {t('img.remove')}
               </button>
             </div>
           </div>
@@ -133,7 +145,7 @@ export function ImagePicker({
                   : 'border-white/[0.14] text-slate-400 hover:border-brand-500/50 hover:bg-brand-500/[0.07] hover:text-brand-200')
               }
             >
-              {busy ? 'Uploading…' : '⬆ Upload ' + label.toLowerCase()}
+              {busy ? t('img.uploading') : t('img.upload', { label: label.toLowerCase() })}
             </button>
 
             <button
@@ -141,7 +153,7 @@ export function ImagePicker({
               className="text-[12px] font-medium text-slate-600 transition hover:text-slate-300"
               onClick={() => setShowUrl((v) => !v)}
             >
-              or paste a URL
+              {t('img.pasteUrl')}
             </button>
           </div>
 

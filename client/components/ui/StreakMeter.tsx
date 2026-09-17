@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '@/lib/i18n';
 
 /** Mirrors the server's scoring model exactly - see server/src/game/scoring.js. */
 const MAX_STEPS = 4;
@@ -28,6 +29,7 @@ export function StreakMeter({
   compact?: boolean;
   broken?: boolean;
 }) {
+  const t = useT();
   const multiplier = multiplierFor(streak);
   const filled = Math.min(Math.max(streak - 1, 0), MAX_STEPS);
   const atCap = filled >= MAX_STEPS;
@@ -49,7 +51,7 @@ export function StreakMeter({
     return (
       <div className="flex items-center justify-center gap-2 rounded-xl border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
         <span aria-hidden>💔</span>
-        <span>Streak lost — back to 1×</span>
+        <span>{t('streak.lost')}</span>
       </div>
     );
   }
@@ -58,7 +60,7 @@ export function StreakMeter({
     return compact ? null : (
       <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
         <span aria-hidden>🔥</span>
-        <span>Get two right in a row to start a multiplier</span>
+        <span>{t('streak.hint')}</span>
       </div>
     );
   }
@@ -73,7 +75,7 @@ export function StreakMeter({
         pulse ? 'scale-[1.03]' : '',
       ].join(' ')}
       role="status"
-      aria-label={'Streak ' + streak + ', scoring at ' + formatMultiplier(multiplier)}
+      aria-label={t('streak.aria', { n: streak, m: formatMultiplier(multiplier) })}
     >
       <span className={'text-xl ' + (pulse ? 'animate-pop' : '')} aria-hidden>
         🔥
@@ -90,7 +92,7 @@ export function StreakMeter({
             {formatMultiplier(multiplier)}
           </span>
           <span className="truncate text-xs text-slate-400">
-            {streak} in a row{atCap ? ' — max multiplier' : ''}
+            {atCap ? t('streak.inARowMax', { n: streak }) : t('streak.inARow', { n: streak })}
           </span>
         </div>
 
@@ -109,7 +111,7 @@ export function StreakMeter({
 
       {!atCap && !compact && (
         <span className="shrink-0 text-right text-xs leading-tight text-slate-400">
-          next
+          {t('streak.next')}
           <br />
           <b className="text-slate-200">{formatMultiplier(multiplierFor(streak + 1))}</b>
         </span>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useT } from '@/lib/i18n';
 
 /**
  * Right-hand slide-over panel.
@@ -24,6 +25,7 @@ export function SlideOver({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const t = useT();
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
@@ -56,7 +58,7 @@ export function SlideOver({
     <div className="fixed inset-0 z-50 flex justify-end">
       <button
         type="button"
-        aria-label="Close panel"
+        aria-label={t('ui.closePanel')}
         onClick={onClose}
         className="absolute inset-0 animate-fadeIn cursor-default bg-black/60 backdrop-blur-sm"
       />
@@ -77,7 +79,7 @@ export function SlideOver({
             type="button"
             onClick={onClose}
             className="btn-ghost -mr-1.5 -mt-1 px-2 py-1 text-lg"
-            aria-label="Close"
+            aria-label={t('ui.close')}
           >
             ✕
           </button>
@@ -107,6 +109,7 @@ export function Modal({
   children: React.ReactNode;
   wide?: boolean;
 }) {
+  const t = useT();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -127,7 +130,7 @@ export function Modal({
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
       <button
         type="button"
-        aria-label="Close dialog"
+        aria-label={t('ui.closeDialog')}
         onClick={onClose}
         className="absolute inset-0 animate-fadeIn cursor-default bg-black/65 backdrop-blur-sm"
       />
@@ -149,7 +152,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             className="btn-ghost -mr-2 -mt-1 px-2 py-1 text-lg"
-            aria-label="Close"
+            aria-label={t('ui.close')}
           >
             ✕
           </button>

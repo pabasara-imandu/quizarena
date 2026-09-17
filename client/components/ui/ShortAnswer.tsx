@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '@/lib/i18n';
 
 /**
  * Free-text answer entry.
@@ -25,6 +26,7 @@ export function ShortAnswer({
   numeric?: boolean;
   unit?: string | null;
 }) {
+  const t = useT();
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -35,12 +37,12 @@ export function ShortAnswer({
   if (submitted) {
     return (
       <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-center">
-        <p className="text-sm text-slate-400">Your answer</p>
+        <p className="text-sm text-slate-400">{t('short.yourAnswer')}</p>
         <p className="mt-1 break-words font-display text-2xl font-bold">
           {submittedText || value || '—'}
           {numeric && unit ? <span className="ml-1.5 text-lg text-slate-400">{unit}</span> : null}
         </p>
-        <p className="mt-2 text-sm text-slate-500">Locked in. Sit tight…</p>
+        <p className="mt-2 text-sm text-slate-500">{t('short.lockedIn')}</p>
       </div>
     );
   }
@@ -58,7 +60,7 @@ export function ShortAnswer({
         <input
           ref={inputRef}
           className={'input py-4 text-center font-display text-xl' + (numeric && unit ? ' pr-16' : '')}
-          placeholder={numeric ? 'Type a number' : 'Type your answer'}
+          placeholder={numeric ? t('short.typeNumber') : t('short.typeAnswer')}
           maxLength={numeric ? 40 : 120}
           inputMode={numeric ? 'decimal' : 'text'}
           value={value}
@@ -81,12 +83,10 @@ export function ShortAnswer({
         className="btn-primary w-full py-3.5 text-lg"
         disabled={disabled || value.trim().length === 0}
       >
-        Submit answer
+        {t('short.submit')}
       </button>
       <p className="text-center text-xs text-slate-500">
-        {numeric
-          ? 'Just the number. A decimal comma is fine.'
-          : 'Spelling counts, but capital letters and extra spaces do not.'}
+        {numeric ? t('short.numericHint') : t('short.textHint')}
       </p>
     </form>
   );

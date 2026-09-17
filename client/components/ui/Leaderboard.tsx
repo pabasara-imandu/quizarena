@@ -1,6 +1,7 @@
 'use client';
 
 import type { LeaderboardRow } from '@/lib/types';
+import { useT } from '@/lib/i18n';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -13,8 +14,9 @@ export function Leaderboard({
   highlightId?: string | null;
   compact?: boolean;
 }) {
+  const t = useT();
   if (rows.length === 0) {
-    return <p className="py-10 text-center text-sm text-slate-600">No scores yet.</p>;
+    return <p className="py-10 text-center text-sm text-slate-600">{t('leaderboard.noScores')}</p>;
   }
 
   const leader = rows[0]?.score || 1;
@@ -51,10 +53,10 @@ export function Leaderboard({
 
               <span className="min-w-0 flex-1 truncate text-sm font-medium">
                 {row.nickname}
-                {mine && <span className="ml-1.5 text-[11px] text-brand-300">you</span>}
+                {mine && <span className="ml-1.5 text-[11px] text-brand-300">{t('ui.you')}</span>}
                 {!row.connected && (
-                  <span className="ml-1.5 text-[11px] text-slate-600" title="Disconnected">
-                    offline
+                  <span className="ml-1.5 text-[11px] text-slate-600" title={t('ui.disconnected')}>
+                    {t('ui.offline')}
                   </span>
                 )}
               </span>

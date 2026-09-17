@@ -1,6 +1,7 @@
 'use client';
 
 import { useCountdown } from '@/lib/useCountdown';
+import { useT } from '@/lib/i18n';
 
 /**
  * Ring countdown. Colour shifts green → amber → red as time runs out, and the
@@ -16,6 +17,7 @@ export function Countdown({
   totalMs: number | null;
   size?: number;
 }) {
+  const t = useT();
   const { seconds, progress } = useCountdown(endAt, totalMs);
   const stroke = size >= 100 ? 7 : 6;
   const radius = size / 2 - stroke - 1;
@@ -30,7 +32,7 @@ export function Countdown({
       style={{ width: size, height: size }}
       role="timer"
       aria-live="off"
-      aria-label={seconds + ' seconds remaining'}
+      aria-label={t('countdown.aria', { n: seconds })}
     >
       <svg width={size} height={size} className="-rotate-90">
         <circle

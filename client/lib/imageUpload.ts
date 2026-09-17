@@ -121,13 +121,17 @@ async function compress(file: File): Promise<{ blob: Blob; width: number; height
     scale *= 0.8;
   }
 
-  throw new Error('That image could not be shrunk enough to upload.');
+  throw Object.assign(new Error('That image could not be shrunk enough to upload.'), {
+    code: 'too_big',
+  });
 }
 
 /** Compress and upload one file. Returns the absolute URL to store in the quiz. */
 export async function uploadImage(file: File): Promise<UploadedImage> {
   if (!file.type.startsWith('image/')) {
-    throw new Error('Pick an image file (JPEG, PNG, WebP or GIF).');
+    throw Object.assign(new Error('Pick an image file (JPEG, PNG, WebP or GIF).'), {
+      code: 'not_image',
+    });
   }
 
   const { blob, width, height } = await compress(file);
@@ -140,7 +144,10 @@ export async function uploadImage(file: File): Promise<UploadedImage> {
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(data.error || 'The upload failed. Check your connection and try again.');
+    throw Object.assign(
+      new Error(data.error || 'The upload failed. Check your connection and try again.'),
+      { code: data.error ? undefined : 'failed' }
+    );
   }
   return { url: data.url, bytes: data.bytes, width, height };
 }

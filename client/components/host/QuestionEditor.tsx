@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { QuestionMedia } from '@/components/ui/QuestionMedia';
 import { ImagePicker } from '@/components/ui/ImagePicker';
 import { QUESTION_TYPE_LABEL, type Option, type Question, type QuestionType } from '@/lib/types';
+import { useT, type Translator } from '@/lib/i18n';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -24,17 +25,6 @@ const POINT_CHOICES = [0, 500, 800, 1000, 1200, 1500, 2000, 3000, 5000];
 const including = (choices: number[], value: number) =>
   choices.includes(value) ? choices : [...choices, value].sort((a, b) => a - b);
 
-/** One line of guidance per type, shown under the answers heading. */
-const TYPE_HINT: Record<QuestionType, string> = {
-  multiple: 'Tap the circle to mark the one right answer.',
-  multiselect: 'Tick every right answer. Students must pick exactly those.',
-  truefalse: 'Tap the circle to mark which is true.',
-  short: 'Any one of these spellings counts as correct.',
-  numeric: 'Correct if their number is within the tolerance.',
-  ordering: 'Write these in the correct order. Students see them shuffled.',
-  poll: 'No right answer. Nobody scores; everyone sees the result.',
-};
-
 const blankOption = (): Option => ({ id: uid(), text: '', correct: false });
 
 /**
@@ -44,7 +34,7 @@ const blankOption = (): Option => ({ id: uid(), text: '', correct: false });
  * time and points - and gives the type-specific part a sensible shape, so a
  * teacher who picked the wrong type does not lose the question they wrote.
  */
-export function convertQuestion(q: Question, type: QuestionType): Question {
+export function convertQuestion(q: Question, type: QuestionType, t: Translator): Question {
   const base = {
     id: q.id,
     text: q.text,
@@ -61,8 +51,8 @@ export function convertQuestion(q: Question, type: QuestionType): Question {
         ...base,
         type,
         options: [
-          { id: 'true', text: 'True', correct: true },
-          { id: 'false', text: 'False', correct: false },
+          { id: 'true', text: t('type.true'), correct: true },
+          { id: 'false', text: t('type.false'), correct: false },
         ],
       };
     case 'short':
@@ -107,6 +97,7 @@ export function QuestionEditor({
   /** Whole-question replacement, for a type change. */
   onReplace: (next: Question) => void;
 }) {
+  const t = useT();
   const [showMedia, setShowMedia] = useState(!!question.image);
   const [showExplanation, setShowExplanation] = useState(!!question.explanation);
 
@@ -114,20 +105,18 @@ export function QuestionEditor({
     <div className="space-y-5">
       {/* ------------------------------------------------------------ header */}
       <header className="flex flex-wrap items-center gap-3">
-        <span className="chip-brand nums">
-          Question {index + 1} of {total}
-        </span>
+        <span className="chip-brand nums">{t('editor.questionOf', { n: index + 1, total })}</span>
         <label className="ml-auto flex items-center gap-2 text-[13px] text-slate-500">
-          <span className="hidden sm:inline">Type</span>
+          <span className="hidden sm:inline">{t('editor.type')}</span>
           <select
             className="select-pill"
             value={question.type}
-            aria-label="Question type"
-            onChange={(e) => onReplace(convertQuestion(question, e.target.value as QuestionType))}
+            aria-label={t('editor.typeAria')}
+            onChange={(e) => onReplace(convertQuestion(question, e.target.value as QuestionType, t))}
           >
-            {(Object.keys(QUESTION_TYPE_LABEL) as QuestionType[]).map((t) => (
-              <option key={t} value={t}>
-                {QUESTION_TYPE_LABEL[t]}
+            {(Object.keys(QUESTION_TYPE_LABEL) as QuestionType[]).map((type) => (
+              <option key={type} value={type}>
+                {t(('type.' + type) as 'type.multiple')}
               </option>
             ))}
           </select>
@@ -138,7 +127,7 @@ export function QuestionEditor({
       <div>
         <textarea
           className="field min-h-[92px] resize-y font-display text-xl leading-snug"
-          placeholder={question.type === 'poll' ? 'What do you want to ask the class?' : 'What do you want to ask?'}
+          placeholder={question.type === 'poll' ? t('editor.promptPlaceholderPoll') : t('editor.promptPlaceholder')}
           maxLength={500}
           value={question.text}
           onChange={(e) => onPatch({ text: e.target.value })}
@@ -146,17 +135,17 @@ export function QuestionEditor({
 
         <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
           {!showMedia && !question.image && (
-            <QuietLink onClick={() => setShowMedia(true)}>+ Add an image</QuietLink>
+            <QuietLink onClick={() => setShowMedia(true)}>{t('editor.addImage')}</QuietLink>
           )}
           {!showExplanation && !question.explanation && (
-            <QuietLink onClick={() => setShowExplanation(true)}>+ Add an explanation</QuietLink>
+            <QuietLink onClick={() => setShowExplanation(true)}>{t('editor.addExplanation')}</QuietLink>
           )}
         </div>
 
         {(showMedia || question.image) && (
           <div className="mt-3 animate-rise">
             <ImagePicker
-              label="Image"
+              label={t('editor.image')}
               value={question.image}
               onChange={(url) => {
                 onPatch({ image: url });
@@ -170,12 +159,12 @@ export function QuestionEditor({
         {(showExplanation || question.explanation) && (
           <div className="mt-3 animate-rise">
             <div className="mb-1.5 flex items-baseline justify-between">
-              <span className="field-label mb-0">Explanation</span>
-              <span className="text-[12px] text-slate-600">shown to everyone with the answer</span>
+              <span className="field-label mb-0">{t('editor.explanation')}</span>
+              <span className="text-[12px] text-slate-600">{t('editor.explanationShown')}</span>
             </div>
             <textarea
               className="field min-h-[64px] resize-y text-[15px]"
-              placeholder="Why is that the answer? One or two sentences, as you would say it to the class."
+              placeholder={t('editor.explanationPlaceholder')}
               maxLength={600}
               value={question.explanation ?? ''}
               onChange={(e) => onPatch({ explanation: e.target.value || null })}
@@ -195,22 +184,22 @@ export function QuestionEditor({
         <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="field-label mb-0">
             {question.type === 'short'
-              ? 'Accepted answers'
+              ? t('editor.acceptedAnswers')
               : question.type === 'numeric'
-                ? 'Answer'
+                ? t('editor.answer')
                 : question.type === 'ordering'
-                  ? 'Correct order'
+                  ? t('editor.correctOrder')
                   : question.type === 'poll'
-                    ? 'Choices'
-                    : 'Answers'}
+                    ? t('editor.choices')
+                    : t('editor.answers')}
           </span>
 
           <div className="ml-auto flex items-center gap-2">
             <label className="flex items-center gap-1.5 text-[12px] text-slate-500">
-              Time
+              {t('editor.time')}
               <select
                 className="select-pill"
-                aria-label="Time limit"
+                aria-label={t('editor.timeAria')}
                 value={question.timeLimitSec}
                 onChange={(e) => onPatch({ timeLimitSec: Number(e.target.value) })}
               >
@@ -223,10 +212,10 @@ export function QuestionEditor({
             </label>
             {question.type !== 'poll' && (
               <label className="flex items-center gap-1.5 text-[12px] text-slate-500">
-                Points
+                {t('editor.points')}
                 <select
                   className="select-pill"
-                  aria-label="Points"
+                  aria-label={t('editor.points')}
                   value={question.points}
                   onChange={(e) => onPatch({ points: Number(e.target.value) })}
                 >
@@ -240,7 +229,9 @@ export function QuestionEditor({
             )}
           </div>
         </div>
-        <p className="mb-3 text-[12.5px] text-slate-600">{TYPE_HINT[question.type]}</p>
+        <p className="mb-3 text-[12.5px] text-slate-600">
+          {t(('editor.hint.' + question.type) as 'editor.hint.multiple')}
+        </p>
 
         {question.type === 'short' && <ShortAnswerFields question={question} onPatch={onPatch} />}
         {question.type === 'numeric' && <NumericFields question={question} onPatch={onPatch} />}
@@ -263,6 +254,7 @@ function TileFields({
   question: Question;
   onPatch: (patch: Partial<Question>) => void;
 }) {
+  const t = useT();
   const [imageFor, setImageFor] = useState<string | null>(null);
   const { type, options } = question;
   const locked = type === 'truefalse';
@@ -324,7 +316,7 @@ function TileFields({
                   <button
                     type="button"
                     onClick={() => mark(oi)}
-                    aria-label={'Mark answer ' + (oi + 1) + ' as correct'}
+                    aria-label={t('editor.markCorrect', { n: oi + 1 })}
                     aria-pressed={!!option.correct}
                     className={
                       'grid h-5 w-5 shrink-0 place-items-center border-2 text-[10px] transition ' +
@@ -343,10 +335,10 @@ function TileFields({
                   className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-[15px] text-slate-100 placeholder:text-slate-600 focus:outline-none"
                   placeholder={
                     markerKind === 'order'
-                      ? 'Step ' + (oi + 1)
+                      ? t('editor.stepN', { n: oi + 1 })
                       : type === 'poll'
-                        ? 'Choice ' + (oi + 1)
-                        : 'Answer ' + (oi + 1)
+                        ? t('editor.choiceN', { n: oi + 1 })
+                        : t('editor.answerN', { n: oi + 1 })
                   }
                   maxLength={200}
                   readOnly={locked}
@@ -361,16 +353,16 @@ function TileFields({
                   <span className="flex shrink-0 items-center gap-0.5 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
                     {markerKind === 'order' && (
                       <>
-                        <IconButton label={'Move step ' + (oi + 1) + ' up'} onClick={() => move(oi, -1)} disabled={oi === 0}>
+                        <IconButton label={t('editor.moveStepUp', { n: oi + 1 })} onClick={() => move(oi, -1)} disabled={oi === 0}>
                           ▲
                         </IconButton>
-                        <IconButton label={'Move step ' + (oi + 1) + ' down'} onClick={() => move(oi, 1)} disabled={oi === options.length - 1}>
+                        <IconButton label={t('editor.moveStepDown', { n: oi + 1 })} onClick={() => move(oi, 1)} disabled={oi === options.length - 1}>
                           ▼
                         </IconButton>
                       </>
                     )}
                     <IconButton
-                      label={'Toggle image for answer ' + (oi + 1)}
+                      label={t('editor.toggleImage', { n: oi + 1 })}
                       onClick={() => setImageFor(showImageField ? null : option.id)}
                       active={!!option.image}
                     >
@@ -378,7 +370,7 @@ function TileFields({
                     </IconButton>
                     {options.length > 2 && (
                       <IconButton
-                        label={'Remove answer ' + (oi + 1)}
+                        label={t('editor.removeAnswer', { n: oi + 1 })}
                         onClick={() => onPatch({ options: options.filter((_, j) => j !== oi) })}
                         danger
                       >
@@ -392,7 +384,7 @@ function TileFields({
               {showImageField && !locked && (
                 <div className="animate-rise px-2.5 pb-2.5 pl-[3.25rem]">
                   <ImagePicker
-                    label="Answer image"
+                    label={t('editor.answerImage')}
                     compact
                     value={option.image}
                     onChange={(url) => {
@@ -409,7 +401,11 @@ function TileFields({
 
       {!locked && options.length < 6 && (
         <QuietLink className="mt-2.5" onClick={() => onPatch({ options: [...options, blankOption()] })}>
-          + Add another {markerKind === 'order' ? 'step' : type === 'poll' ? 'choice' : 'answer'}
+          {markerKind === 'order'
+            ? t('editor.addStep')
+            : type === 'poll'
+              ? t('editor.addChoice')
+              : t('editor.addAnswer')}
         </QuietLink>
       )}
     </fieldset>
@@ -423,6 +419,7 @@ function ShortAnswerFields({
   question: Question;
   onPatch: (patch: Partial<Question>) => void;
 }) {
+  const t = useT();
   const accepted = question.acceptedAnswers ?? [''];
 
   return (
@@ -435,7 +432,7 @@ function ShortAnswerFields({
             </span>
             <input
               className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-[15px] text-slate-100 placeholder:text-slate-600 focus:outline-none"
-              placeholder={i === 0 ? 'The answer' : 'Another accepted spelling'}
+              placeholder={i === 0 ? t('editor.theAnswer') : t('editor.anotherSpelling')}
               maxLength={120}
               value={answer}
               onChange={(e) =>
@@ -445,7 +442,7 @@ function ShortAnswerFields({
             {accepted.length > 1 && (
               <span className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
                 <IconButton
-                  label={'Remove accepted answer ' + (i + 1)}
+                  label={t('editor.removeAccepted', { n: i + 1 })}
                   onClick={() => onPatch({ acceptedAnswers: accepted.filter((_, j) => j !== i) })}
                   danger
                 >
@@ -460,7 +457,7 @@ function ShortAnswerFields({
       <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-2">
         {accepted.length < 12 && (
           <QuietLink onClick={() => onPatch({ acceptedAnswers: [...accepted, ''] })}>
-            + Add an alternative spelling
+            {t('editor.addSpelling')}
           </QuietLink>
         )}
         <label className="flex cursor-pointer items-center gap-2 text-[13px] text-slate-400">
@@ -470,7 +467,7 @@ function ShortAnswerFields({
             checked={!!question.caseSensitive}
             onChange={(e) => onPatch({ caseSensitive: e.target.checked })}
           />
-          Match capitals exactly
+          {t('editor.matchCase')}
         </label>
       </div>
     </fieldset>
@@ -484,10 +481,11 @@ function NumericFields({
   question: Question;
   onPatch: (patch: Partial<Question>) => void;
 }) {
+  const t = useT();
   return (
     <div className="grid gap-3 sm:grid-cols-[1fr_1fr_8rem]">
       <label className="block">
-        <span className="field-label">Correct value</span>
+        <span className="field-label">{t('editor.correctValue')}</span>
         <input
           type="number"
           inputMode="decimal"
@@ -499,7 +497,7 @@ function NumericFields({
         />
       </label>
       <label className="block">
-        <span className="field-label">Tolerance (±)</span>
+        <span className="field-label">{t('editor.tolerance')}</span>
         <input
           type="number"
           inputMode="decimal"
@@ -512,18 +510,16 @@ function NumericFields({
         />
       </label>
       <label className="block">
-        <span className="field-label">Unit</span>
+        <span className="field-label">{t('editor.unit')}</span>
         <input
           className="field"
-          placeholder="m/s², kg…"
+          placeholder={t('editor.unitPlaceholder')}
           maxLength={20}
           value={question.unit ?? ''}
           onChange={(e) => onPatch({ unit: e.target.value || null })}
         />
       </label>
-      <p className="field-hint sm:col-span-3">
-        Students type a number. A decimal comma is fine; the unit is shown to them, not typed.
-      </p>
+      <p className="field-hint sm:col-span-3">{t('editor.numericHint')}</p>
     </div>
   );
 }
