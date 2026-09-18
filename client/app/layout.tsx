@@ -3,6 +3,7 @@ import { Inter, Noto_Sans_Sinhala, Outfit } from 'next/font/google';
 import './globals.css';
 import { SocketProvider } from '@/lib/socket';
 import { LanguageProvider } from '@/lib/i18n';
+import { APPEARANCE_BOOT_SCRIPT, ThemeProvider } from '@/lib/theme';
 
 // Outfit for display (geometric, friendly, reads well huge on a projector),
 // Inter for everything else. Both self-hosted by next/font - no render-blocking
@@ -42,11 +43,26 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={sans.variable + ' ' + display.variable + ' ' + sinhala.variable}>
+    // suppressHydrationWarning: the boot script below writes data-theme and
+    // data-palette onto <html> before React arrives, so the attributes the
+    // server rendered and the ones React finds differ on purpose.
+    <html
+      lang="en"
+      className={sans.variable + ' ' + display.variable + ' ' + sinhala.variable}
+      suppressHydrationWarning
+    >
+      <head>
+        {/* Reads the device's saved palette and applies it before the first
+            paint. Without this a Daylight device would flash Midnight on
+            every load, which is worse than no theme at all. */}
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT_SCRIPT }} />
+      </head>
       <body className="min-h-screen font-sans">
-        <LanguageProvider>
-          <SocketProvider>{children}</SocketProvider>
-        </LanguageProvider>
+        <ThemeProvider>
+          <LanguageProvider>
+            <SocketProvider>{children}</SocketProvider>
+          </LanguageProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

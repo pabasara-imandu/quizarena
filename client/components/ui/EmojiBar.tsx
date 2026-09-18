@@ -52,8 +52,8 @@ export function EmojiBar({
             onClick={() => send(emoji as Reaction)}
             aria-label={t('emoji.sendAria', { emoji })}
             className={[
-              'grid h-12 w-12 place-items-center rounded-xl border border-white/10 bg-white/5 text-2xl',
-              'transition hover:bg-white/10 active:scale-90 disabled:opacity-30',
+              'grid h-12 w-12 place-items-center rounded-xl border border-mist/10 bg-mist/5 text-2xl',
+              'transition hover:bg-mist/10 active:scale-90 disabled:opacity-30',
               flash === emoji ? 'scale-110 border-brand-400/60 bg-brand-500/20' : '',
             ].join(' ')}
           >

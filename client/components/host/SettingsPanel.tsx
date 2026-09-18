@@ -4,6 +4,8 @@ import { SlideOver } from '@/components/ui/SlideOver';
 import { Toggle } from '@/components/ui/Toggle';
 import type { RoomSettings } from '@/lib/types';
 import { useT } from '@/lib/i18n';
+import { useTheme } from '@/lib/theme';
+import { findTheme, THEMES } from '@/lib/themes';
 
 /**
  * Every room setting, grouped and out of the way.
@@ -25,6 +27,8 @@ export function SettingsPanel({
   onChange: (patch: Partial<RoomSettings>) => void;
 }) {
   const t = useT();
+  const { appearance, setAppearance } = useTheme();
+  const theme = findTheme(appearance.theme);
   return (
     <SlideOver
       open={open}
@@ -38,6 +42,71 @@ export function SettingsPanel({
       }
     >
       <div className="space-y-7">
+        {/* Not a room setting: this device's own look, kept beside the room
+            settings because this is where a teacher goes to set things up.
+            Applies at once, so the choice is made by looking, not guessing. */}
+        <Group title={t('settings.appearance')}>
+          <div className="px-3">
+            <p className="field-hint mt-0 mb-3">{t('settings.appearanceHint')}</p>
+
+            <label className="mb-3 flex items-center justify-between gap-3 text-[13px] text-slate-400">
+              {t('settings.theme')}
+              <select
+                className="select-pill"
+                value={appearance.theme}
+                aria-label={t('settings.theme')}
+                onChange={(e) => setAppearance({ theme: e.target.value })}
+              >
+                {THEMES.map((th) => (
+                  <option key={th.id} value={th.id}>
+                    {th.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <span className="field-label">{t('settings.palette')}</span>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('settings.palette')}>
+              {theme.palettes.map((p) => {
+                const active = p.id === appearance.palette;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    title={p.hint}
+                    onClick={() => setAppearance({ palette: p.id })}
+                    className={
+                      'flex items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition ' +
+                      (active
+                        ? 'border-brand-500/60 bg-brand-500/10'
+                        : 'border-mist/[0.08] bg-mist/[0.03] hover:border-mist/[0.16]')
+                    }
+                  >
+                    {/* The swatch is the palette itself, not a picture of it:
+                        page, card, accent, in a fixed-colour frame so it reads
+                        the same whatever palette is on. */}
+                    <span
+                      className="flex h-8 w-8 shrink-0 overflow-hidden rounded-lg ring-1 ring-black/40"
+                      aria-hidden
+                      style={{ background: p.swatch[0] }}
+                    >
+                      <span className="mt-2 ml-1.5 h-4 w-3 rounded-sm" style={{ background: p.swatch[1] }} />
+                      <span className="mt-3 ml-1 h-2 w-2 rounded-full" style={{ background: p.swatch[2] }} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className={'block text-[13px] font-semibold ' + (active ? 'text-brand-300' : 'text-slate-200')}>
+                        {p.name}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </Group>
+
         <Group title={t('settings.scoring')}>
           <Toggle
             label={t('settings.speedBonus')}

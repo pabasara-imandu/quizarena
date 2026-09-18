@@ -36,8 +36,8 @@ export const RESULT_TONE: Record<
   timeout: {
     stroke: '#94a3b8',
     wash: 'rgba(148,163,184,0.26)',
-    tint: 'bg-white/[0.04]',
-    ring: 'border-white/10',
+    tint: 'bg-mist/[0.04]',
+    ring: 'border-mist/10',
     title: 'Time ran out',
     text: 'text-slate-300',
   },

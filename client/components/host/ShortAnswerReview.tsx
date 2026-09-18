@@ -124,7 +124,7 @@ export function ShortAnswerReview({
                     'flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2.5 transition ' +
                     (dirty
                       ? 'border-brand-500/50 bg-brand-500/[0.09]'
-                      : 'border-transparent bg-white/[0.04]')
+                      : 'border-transparent bg-mist/[0.04]')
                   }
                 >
                   <span className="min-w-0 flex-1 basis-40 truncate text-sm">
@@ -141,7 +141,7 @@ export function ShortAnswerReview({
                   {/* Two explicit buttons rather than a switch: "is this right?"
                       is the question being asked, and a half-lit toggle is a
                       poor way to ask it. */}
-                  <span className="flex shrink-0 overflow-hidden rounded-lg border border-white/10">
+                  <span className="flex shrink-0 overflow-hidden rounded-lg border border-mist/10">
                     <button
                       type="button"
                       aria-pressed={correct}
@@ -150,7 +150,7 @@ export function ShortAnswerReview({
                         'px-2.5 py-1 text-[12px] font-semibold transition ' +
                         (correct
                           ? 'bg-emerald-500/25 text-emerald-200'
-                          : 'text-slate-500 hover:bg-white/[0.06]')
+                          : 'text-slate-500 hover:bg-mist/[0.06]')
                       }
                     >
                       {t('rm.correct')}
@@ -163,7 +163,7 @@ export function ShortAnswerReview({
                         'px-2.5 py-1 text-[12px] font-semibold transition ' +
                         (!correct
                           ? 'bg-rose-500/25 text-rose-200'
-                          : 'text-slate-500 hover:bg-white/[0.06]')
+                          : 'text-slate-500 hover:bg-mist/[0.06]')
                       }
                     >
                       {t('rm.wrong')}
@@ -191,7 +191,7 @@ export function ShortAnswerReview({
 
       {/* Fixed, because the list is long and the commit must never be a scroll
           hunt - the same reason the live controls are pinned. */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.07] bg-ink-950/92 px-4 py-3 backdrop-blur-xl sm:px-6">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-mist/[0.07] bg-ink-950/92 px-4 py-3 backdrop-blur-xl sm:px-6">
         <div className="mx-auto flex max-w-6xl items-center gap-3">
           <span className="min-w-0 flex-1 truncate text-[13px] text-slate-500">
             {changes.length === 0 ? t('rm.noneStaged') : t.n('rm.ready', changes.length)}

@@ -25,7 +25,7 @@ export default function HomePage() {
             the box model, lopsided to the eye. */}
         <div className="mt-6 flex items-center justify-center gap-3 sm:gap-5">
           <SocietyLogo className="w-14 shrink-0 sm:w-[5.5rem]" />
-          <span className="h-10 w-px shrink-0 bg-white/[0.13] sm:h-14" aria-hidden />
+          <span className="h-10 w-px shrink-0 bg-mist/[0.13] sm:h-14" aria-hidden />
           <Tilt3D>
             <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-6xl">
               Quiz<span className="text-brand-400">Arena</span>

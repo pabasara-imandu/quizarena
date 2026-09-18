@@ -181,7 +181,7 @@ export function HostLive({
           )}
 
           {/* Answer progress: the single most useful number while hosting. */}
-          <div className="border-t border-white/[0.06] px-5 py-4 sm:px-7">
+          <div className="border-t border-mist/[0.06] px-5 py-4 sm:px-7">
             <div className="mb-2 flex items-baseline justify-between">
               <span className="text-sm text-slate-400">{t('live.answersIn')}</span>
               <span className="font-display text-xl font-bold nums">
@@ -189,7 +189,7 @@ export function HostLive({
                 <span className="text-slate-600"> / {total}</span>
               </span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-white/[0.07]">
+            <div className="h-2 overflow-hidden rounded-full bg-mist/[0.07]">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-brand-500 to-emerald-400 transition-all duration-500"
                 style={{ width: (total ? (answered / total) * 100 : 0) + '%' }}
@@ -376,7 +376,7 @@ export function HostLive({
           on a laptop - so the button to advance the quiz scrolled off the top
           at exactly the moment the host was reading the leaderboard and
           reaching for it. Fixed, it is always under the thumb. */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.07] bg-ink-950/92 px-4 py-3 backdrop-blur-xl sm:px-6">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-mist/[0.07] bg-ink-950/92 px-4 py-3 backdrop-blur-xl sm:px-6">
         {/* Wraps: when a language's labels do not fit beside each other on
             a phone, End drops to a second row rather than any label being
             cut to a sliver. In English on a laptop nothing moves. */}
@@ -442,7 +442,7 @@ function TextDistribution({
       {responses.map((r) => {
         const share = answered ? (r.count / answered) * 100 : 0;
         return (
-          <li key={r.key} className="relative overflow-hidden rounded-xl bg-white/[0.04] px-3 py-2.5">
+          <li key={r.key} className="relative overflow-hidden rounded-xl bg-mist/[0.04] px-3 py-2.5">
             <span
               className={
                 'absolute inset-y-0 left-0 transition-all duration-700 ' +

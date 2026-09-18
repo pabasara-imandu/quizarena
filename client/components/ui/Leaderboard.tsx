@@ -40,7 +40,7 @@ export function Leaderboard({
             <span
               className={
                 'absolute inset-y-0 left-0 transition-all duration-700 ease-out ' +
-                (mine ? 'bg-brand-500/25' : 'bg-white/[0.06]')
+                (mine ? 'bg-brand-500/25' : 'bg-mist/[0.06]')
               }
               style={{ width: share + '%' }}
               aria-hidden

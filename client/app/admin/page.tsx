@@ -109,7 +109,7 @@ const PHASE_TONE: Record<string, string> = {
   question: 'bg-emerald-500/20 text-emerald-300',
   reveal: 'bg-amber-500/20 text-amber-200',
   leaderboard: 'bg-sky-500/20 text-sky-300',
-  ended: 'bg-white/10 text-slate-500',
+  ended: 'bg-mist/10 text-slate-500',
 };
 
 function duration(sec?: number) {
@@ -505,7 +505,7 @@ function ServerCard({ server }: { server: ServerView }) {
 
   return (
     <section className="surface overflow-hidden">
-      <div className="flex flex-wrap items-center gap-3 border-b border-white/[0.06] px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3 border-b border-mist/[0.06] px-4 py-3">
         <span
           className={
             'h-2.5 w-2.5 shrink-0 rounded-full ' +
@@ -547,7 +547,7 @@ function ServerCard({ server }: { server: ServerView }) {
       {server.authorised && (
         <>
           <div className="px-4 pt-3">
-            <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
+            <div className="h-1.5 overflow-hidden rounded-full bg-mist/[0.07]">
               <div
                 className={
                   'h-full rounded-full transition-all duration-500 ' +
@@ -565,7 +565,7 @@ function ServerCard({ server }: { server: ServerView }) {
           {server.sessions.length === 0 ? (
             <p className="px-4 py-6 text-center text-sm text-slate-600">No sessions on this server.</p>
           ) : (
-            <ul className="divide-y divide-white/[0.05] px-2 py-1">
+            <ul className="divide-y divide-mist/[0.05] px-2 py-1">
               {server.sessions.map((s) => (
                 <li key={s.pin} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-2.5">
                   <span className="font-display text-sm font-bold tracking-[0.12em] nums text-brand-300">
@@ -576,7 +576,7 @@ function ServerCard({ server }: { server: ServerView }) {
                   <span
                     className={
                       'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ' +
-                      (PHASE_TONE[s.phase] ?? 'bg-white/10 text-slate-400')
+                      (PHASE_TONE[s.phase] ?? 'bg-mist/10 text-slate-400')
                     }
                   >
                     {s.phase}

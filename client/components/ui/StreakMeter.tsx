@@ -102,7 +102,7 @@ export function StreakMeter({
               key={i}
               className={
                 'h-1.5 flex-1 rounded-full transition-colors duration-300 ' +
-                (i < filled ? (atCap ? 'bg-amber-300' : 'bg-orange-400') : 'bg-white/15')
+                (i < filled ? (atCap ? 'bg-amber-300' : 'bg-orange-400') : 'bg-mist/15')
               }
             />
           ))}

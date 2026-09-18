@@ -217,11 +217,11 @@ export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdi
   return (
     <>
       {/* --------------------------------------------------------- action bar */}
-      <div className="sticky top-0 z-20 -mx-4 mb-5 border-b border-white/[0.06] bg-ink-950/85 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6">
+      <div className="sticky top-0 z-20 -mx-4 mb-5 border-b border-mist/[0.06] bg-ink-950/85 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center gap-3">
           <input
             aria-label={t('creator.titleAria')}
-            className="min-w-0 flex-1 basis-full rounded-xl border border-transparent bg-transparent px-2 py-1.5 font-display text-xl font-bold text-slate-100 transition placeholder:text-slate-600 hover:border-white/10 focus:border-brand-500/60 focus:bg-ink-900 focus:outline-none sm:basis-auto sm:text-2xl"
+            className="min-w-0 flex-1 basis-full rounded-xl border border-transparent bg-transparent px-2 py-1.5 font-display text-xl font-bold text-slate-100 transition placeholder:text-slate-600 hover:border-mist/10 focus:border-brand-500/60 focus:bg-ink-900 focus:outline-none sm:basis-auto sm:text-2xl"
             value={title}
             maxLength={120}
             placeholder={t('creator.titlePlaceholder')}

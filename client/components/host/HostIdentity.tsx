@@ -62,7 +62,7 @@ export function HostIdentity({
           src={identity.picture}
           alt=""
           referrerPolicy="no-referrer"
-          className="h-7 w-7 rounded-full border border-white/10"
+          className="h-7 w-7 rounded-full border border-mist/10"
         />
       ) : (
         <span className="grid h-7 w-7 place-items-center rounded-full bg-brand-500/25 text-[11px] font-bold text-brand-200">

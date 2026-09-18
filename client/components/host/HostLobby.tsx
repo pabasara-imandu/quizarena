@@ -145,7 +145,7 @@ export function HostLobby({
             {players.map((p) => (
               <li
                 key={p.id}
-                className="group flex animate-pop items-center gap-2 rounded-xl px-2.5 py-2 transition hover:bg-white/[0.05]"
+                className="group flex animate-pop items-center gap-2 rounded-xl px-2.5 py-2 transition hover:bg-mist/[0.05]"
               >
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-500/20 text-[11px] font-bold text-brand-200">
                   {p.nickname.slice(0, 2).toUpperCase()}

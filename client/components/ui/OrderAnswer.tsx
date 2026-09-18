@@ -36,11 +36,11 @@ export function OrderAnswer({
   if (submitted) {
     const shown = submittedOrder ?? order;
     return (
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="rounded-2xl border border-mist/10 bg-mist/5 p-4">
         <p className="mb-2 text-center text-sm text-slate-400">{t('order.yourOrder')}</p>
         <ol className="space-y-1.5">
           {shown.map((id, i) => (
-            <li key={id} className="flex items-center gap-3 rounded-xl bg-white/[0.04] px-3 py-2">
+            <li key={id} className="flex items-center gap-3 rounded-xl bg-mist/[0.04] px-3 py-2">
               <span className={'grid h-7 w-7 shrink-0 place-items-center rounded-lg text-sm font-bold text-white ' + tone(id)}>
                 {i + 1}
               </span>
@@ -82,8 +82,8 @@ export function OrderAnswer({
                   <span className="text-xs opacity-80">{t('order.tapToUndo')}</span>
                 </button>
               ) : (
-                <div className="flex items-center gap-3 rounded-xl border border-dashed border-white/15 px-3 py-2.5 text-slate-600">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/[0.04] text-sm nums">
+                <div className="flex items-center gap-3 rounded-xl border border-dashed border-mist/15 px-3 py-2.5 text-slate-600">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-mist/[0.04] text-sm nums">
                     {i + 1}
                   </span>
                   <span className="text-sm">{i === order.length ? t('order.tapNext') : ''}</span>

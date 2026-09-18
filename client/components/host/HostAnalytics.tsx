@@ -72,11 +72,11 @@ export function HostAnalytics({
                 </span>
                 <div
                   className={
-                    'grid w-full place-items-center rounded-t-xl border border-white/10 ' +
+                    'grid w-full place-items-center rounded-t-xl border border-mist/10 ' +
                     height +
                     (p.rank === 1
                       ? ' bg-gradient-to-t from-amber-500/30 to-amber-300/20'
-                      : ' bg-white/5')
+                      : ' bg-mist/5')
                   }
                 >
                   <span className="font-display text-3xl font-extrabold">{p.rank}</span>
@@ -126,7 +126,7 @@ export function HostAnalytics({
             {data.hardestQuestions.map((q) => (
               <li
                 key={q.questionId}
-                className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5"
+                className="flex items-center gap-3 rounded-xl border border-mist/10 bg-mist/5 px-3 py-2.5"
               >
                 <span className="shrink-0 rounded-lg bg-amber-500/20 px-2 py-1 font-display text-sm font-bold nums text-amber-200">
                   {pct(q.accuracy)}
@@ -249,7 +249,7 @@ export function HostAnalytics({
                 ).map((o) => {
                   const share = q.answered ? (o.count / q.answered) * 100 : 0;
                   return (
-                    <li key={o.id} className="relative overflow-hidden rounded-lg bg-white/5 px-3 py-2">
+                    <li key={o.id} className="relative overflow-hidden rounded-lg bg-mist/5 px-3 py-2">
                       <span
                         className={
                           'absolute inset-y-0 left-0 ' +
@@ -269,7 +269,7 @@ export function HostAnalytics({
                   );
                 })}
                 {q.answered === 0 && (
-                  <li className="rounded-lg bg-white/5 px-3 py-2 text-sm text-slate-500">
+                  <li className="rounded-lg bg-mist/5 px-3 py-2 text-sm text-slate-500">
                     {t('an.nobodyAnswered')}
                   </li>
                 )}
@@ -293,7 +293,7 @@ export function HostAnalytics({
                 .slice()
                 .reverse()
                 .map((e) => (
-                  <li key={e.id} className="flex gap-3 rounded px-2 py-1.5 odd:bg-white/5">
+                  <li key={e.id} className="flex gap-3 rounded px-2 py-1.5 odd:bg-mist/5">
                     <span className="shrink-0 nums text-xs text-slate-500">
                       {new Date(e.at).toLocaleTimeString()}
                     </span>
@@ -333,7 +333,7 @@ function MatrixTable({ data }: { data: Analytics }) {
     correct: 'bg-emerald-500/20 text-emerald-200',
     incorrect: 'bg-rose-500/15 text-rose-200',
     skipped: 'bg-amber-500/15 text-amber-200',
-    no_answer: 'bg-white/5 text-slate-500',
+    no_answer: 'bg-mist/5 text-slate-500',
   };
   const cellMark: Record<string, string> = {
     correct: '✓',
@@ -427,7 +427,7 @@ function MatrixTable({ data }: { data: Analytics }) {
           <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-200">⏭</span> {t('mx.skipped')}
         </span>
         <span>
-          <span className="rounded bg-white/5 px-1.5 py-0.5 text-slate-500">·</span> {t('mx.noAnswer')}
+          <span className="rounded bg-mist/5 px-1.5 py-0.5 text-slate-500">·</span> {t('mx.noAnswer')}
         </span>
       </div>
     </div>
@@ -463,7 +463,7 @@ function StudentBreakdown({ data }: { data: Analytics }) {
               <th className="py-3 pr-4 text-right">{t('st.flags')}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className="divide-y divide-mist/5">
             {matrix.rows.map((row) => {
               const p = data.players.find((x) => x.id === row.playerId);
               const expanded = open === row.playerId;
@@ -471,8 +471,8 @@ function StudentBreakdown({ data }: { data: Analytics }) {
                 <Fragment key={row.playerId}>
                   <tr
                     className={
-                      'cursor-pointer transition hover:bg-white/[0.04] ' +
-                      (expanded ? 'bg-white/[0.04]' : '')
+                      'cursor-pointer transition hover:bg-mist/[0.04] ' +
+                      (expanded ? 'bg-mist/[0.04]' : '')
                     }
                     onClick={() => setOpen(expanded ? null : row.playerId)}
                     aria-expanded={expanded}
@@ -518,7 +518,7 @@ function StudentBreakdown({ data }: { data: Analytics }) {
                               <th className="py-1.5 text-right">{t('st.time')}</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-white/[0.04]">
+                          <tbody className="divide-y divide-mist/[0.04]">
                             {row.cells.map((cell, i) => {
                               const q = matrix.questions[i];
                               return (
@@ -563,7 +563,7 @@ function StudentBreakdown({ data }: { data: Analytics }) {
           </tbody>
         </table>
       </div>
-      <p className="border-t border-white/[0.05] px-4 py-2.5 text-[12px] text-slate-600">
+      <p className="border-t border-mist/[0.05] px-4 py-2.5 text-[12px] text-slate-600">
         {t('st.clickHint')}
       </p>
     </div>

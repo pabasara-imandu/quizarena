@@ -2,8 +2,186 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* ------------------------------------------------------------- palettes */
+/* Everything a palette may change, as `R G B` triplets so Tailwind can add
+   an alpha. Midnight is the default and also the fallback: any element
+   outside a `[data-palette]` scope still gets these. A new palette is one
+   more block here and one line in lib/themes.ts; nothing else moves. */
+:root,
+[data-palette='midnight'] {
   color-scheme: dark;
+  --ink-950: 7 7 12;
+  --ink-900: 11 11 18;
+  --ink-850: 16 16 26;
+  --ink-800: 22 22 34;
+  --ink-700: 31 31 46;
+  --ink-600: 43 43 61;
+  --ink-500: 58 58 80;
+  --brand-200: 211 204 255;
+  --brand-300: 179 166 255;
+  --brand-400: 148 132 255;
+  --brand-500: 117 98 245;
+  --brand-600: 92 73 220;
+  --brand-700: 71 54 180;
+  --on-brand: 255 255 255;
+  --fg-100: 241 245 249;
+  --fg-200: 226 232 240;
+  --fg-300: 203 213 225;
+  --fg-400: 148 163 184;
+  --fg-500: 100 116 139;
+  --fg-600: 71 85 105;
+  --fg-700: 51 65 85;
+  --mist: 255 255 255;
+  --surface: 255 255 255;
+  --surface-alpha: 0.035;
+  --aurora-1: rgba(117, 98, 245, 0.18);
+  --aurora-2: rgba(236, 72, 153, 0.1);
+}
+
+[data-palette='daylight'] {
+  color-scheme: light;
+  --ink-950: 244 243 250;
+  --ink-900: 255 255 255;
+  --ink-850: 255 255 255;
+  --ink-800: 241 240 248;
+  --ink-700: 230 228 240;
+  --ink-600: 214 212 226;
+  --ink-500: 196 194 211;
+  --brand-200: 54 42 143;
+  --brand-300: 71 54 180;
+  --brand-400: 92 73 220;
+  --brand-500: 92 73 220;
+  --brand-600: 71 54 180;
+  --brand-700: 54 42 143;
+  --on-brand: 255 255 255;
+  --fg-100: 20 19 31;
+  --fg-200: 31 30 46;
+  --fg-300: 46 45 68;
+  --fg-400: 88 87 112;
+  --fg-500: 110 109 133;
+  --fg-600: 156 155 176;
+  --fg-700: 183 182 200;
+  --mist: 20 19 31;
+  --surface: 255 255 255;
+  --surface-alpha: 0.85;
+  --aurora-1: rgba(117, 98, 245, 0.14);
+  --aurora-2: rgba(236, 72, 153, 0.08);
+}
+
+[data-palette='chalkboard'] {
+  --ink-950: 11 23 18;
+  --ink-900: 15 28 22;
+  --ink-850: 19 34 25;
+  --ink-800: 26 45 34;
+  --ink-700: 34 58 44;
+  --ink-600: 46 74 58;
+  --ink-500: 62 92 74;
+  --brand-200: 255 227 163;
+  --brand-300: 255 210 117;
+  --brand-400: 255 201 77;
+  --brand-500: 245 185 59;
+  --brand-600: 217 158 31;
+  --brand-700: 176 127 20;
+  --on-brand: 26 20 8;
+  --fg-100: 242 239 230;
+  --fg-200: 227 224 214;
+  --fg-300: 201 207 197;
+  --fg-400: 163 181 169;
+  --fg-500: 134 152 140;
+  --fg-600: 101 120 108;
+  --fg-700: 79 97 86;
+  --mist: 242 239 230;
+  --surface: 242 239 230;
+  --surface-alpha: 0.04;
+  --aurora-1: rgba(52, 211, 153, 0.16);
+  --aurora-2: rgba(245, 185, 59, 0.1);
+}
+
+[data-palette='lagoon'] {
+  --ink-950: 5 18 30;
+  --ink-900: 7 23 42;
+  --ink-850: 11 28 44;
+  --ink-800: 17 38 55;
+  --ink-700: 24 50 70;
+  --ink-600: 34 66 89;
+  --ink-500: 47 84 112;
+  --brand-200: 180 243 241;
+  --brand-300: 126 234 230;
+  --brand-400: 63 224 220;
+  --brand-500: 34 199 195;
+  --brand-600: 23 166 163;
+  --brand-700: 17 133 131;
+  --on-brand: 3 32 31;
+  --fg-100: 234 246 255;
+  --fg-200: 215 233 245;
+  --fg-300: 184 208 224;
+  --fg-400: 143 176 198;
+  --fg-500: 111 145 168;
+  --fg-600: 79 110 132;
+  --fg-700: 61 87 104;
+  --mist: 234 246 255;
+  --surface: 234 246 255;
+  --surface-alpha: 0.04;
+  --aurora-1: rgba(34, 199, 195, 0.18);
+  --aurora-2: rgba(59, 130, 246, 0.14);
+}
+
+[data-palette='lanka'] {
+  --ink-950: 22 8 16;
+  --ink-900: 26 10 18;
+  --ink-850: 36 16 26;
+  --ink-800: 48 23 35;
+  --ink-700: 62 31 46;
+  --ink-600: 78 42 59;
+  --ink-500: 98 56 75;
+  --brand-200: 255 224 168;
+  --brand-300: 255 201 106;
+  --brand-400: 255 182 64;
+  --brand-500: 242 163 36;
+  --brand-600: 209 138 20;
+  --brand-700: 169 110 14;
+  --on-brand: 42 22 0;
+  --fg-100: 255 243 230;
+  --fg-200: 245 226 211;
+  --fg-300: 224 197 189;
+  --fg-400: 205 169 165;
+  --fg-500: 169 135 132;
+  --fg-600: 126 94 98;
+  --fg-700: 98 72 76;
+  --mist: 255 243 230;
+  --surface: 255 243 230;
+  --surface-alpha: 0.04;
+  --aurora-1: rgba(242, 163, 36, 0.16);
+  --aurora-2: rgba(190, 24, 93, 0.16);
+}
+
+[data-palette='contrast'] {
+  --ink-950: 0 0 0;
+  --ink-900: 0 0 0;
+  --ink-850: 10 10 10;
+  --ink-800: 20 20 20;
+  --ink-700: 38 38 38;
+  --ink-600: 58 58 58;
+  --ink-500: 77 77 77;
+  --brand-200: 255 243 163;
+  --brand-300: 255 230 0;
+  --brand-400: 255 235 51;
+  --brand-500: 255 230 0;
+  --brand-600: 230 207 0;
+  --brand-700: 191 170 0;
+  --on-brand: 0 0 0;
+  --fg-100: 255 255 255;
+  --fg-200: 245 245 245;
+  --fg-300: 230 230 230;
+  --fg-400: 217 217 217;
+  --fg-500: 194 194 194;
+  --fg-600: 154 154 154;
+  --fg-700: 122 122 122;
+  --mist: 255 255 255;
+  --surface: 255 255 255;
+  --surface-alpha: 0.06;
+  --aurora-1: transparent;
+  --aurora-2: transparent;
 }
 
 html,
@@ -15,8 +193,8 @@ body {
   @apply bg-ink-950 text-slate-100 antialiased;
   /* A single soft aurora, fixed and low-contrast. Depth without noise. */
   background-image:
-    radial-gradient(70rem 45rem at 12% -15%, rgba(117, 98, 245, 0.18), transparent 62%),
-    radial-gradient(55rem 40rem at 105% 0%, rgba(236, 72, 153, 0.1), transparent 58%);
+    radial-gradient(70rem 45rem at 12% -15%, var(--aurora-1), transparent 62%),
+    radial-gradient(55rem 40rem at 105% 0%, var(--aurora-2), transparent 58%);
   background-attachment: fixed;
 }
 
@@ -43,13 +221,16 @@ body {
   /* ---------------------------------------------------------------- surfaces */
 
   .surface {
-    @apply rounded-2xl border border-white/[0.06] bg-white/[0.035] shadow-soft backdrop-blur-xl;
+    @apply rounded-2xl border border-mist/[0.06] shadow-soft backdrop-blur-xl;
+    /* Not a `mist` tint: on a light page a card must be lighter than the
+       page, not darker, so its fill is its own token. */
+    background-color: rgb(var(--surface) / var(--surface-alpha));
   }
   .surface-solid {
-    @apply rounded-2xl border border-white/[0.06] bg-ink-850 shadow-soft;
+    @apply rounded-2xl border border-mist/[0.06] bg-ink-850 shadow-soft;
   }
   .surface-hover {
-    @apply transition duration-200 hover:border-white/[0.12] hover:bg-white/[0.06];
+    @apply transition duration-200 hover:border-mist/[0.12] hover:bg-mist/[0.06];
   }
 
   /* ----------------------------------------------------------------- buttons */
@@ -62,13 +243,13 @@ body {
            active:scale-[0.98] disabled:pointer-events-none disabled:opacity-35;
   }
   .btn-primary {
-    @apply btn bg-brand-500 text-white shadow-glow hover:bg-brand-400;
+    @apply btn bg-brand-500 text-onbrand shadow-glow hover:bg-brand-400;
   }
   .btn-secondary {
-    @apply btn border border-white/10 bg-white/[0.06] text-slate-100 hover:border-white/20 hover:bg-white/[0.1];
+    @apply btn border border-mist/10 bg-mist/[0.06] text-slate-100 hover:border-mist/20 hover:bg-mist/[0.1];
   }
   .btn-ghost {
-    @apply btn text-slate-400 hover:bg-white/[0.06] hover:text-slate-100;
+    @apply btn text-slate-400 hover:bg-mist/[0.06] hover:text-slate-100;
   }
   .btn-danger {
     @apply btn text-rose-300 hover:bg-rose-500/10 hover:text-rose-200;
@@ -83,7 +264,7 @@ body {
   /* ------------------------------------------------------------------ inputs */
 
   .field {
-    @apply w-full rounded-xl border border-white/[0.08] bg-ink-900/70 px-3.5 py-2.5 text-[15px]
+    @apply w-full rounded-xl border border-mist/[0.08] bg-ink-900/70 px-3.5 py-2.5 text-[15px]
            text-slate-100 transition placeholder:text-slate-600
            focus:border-brand-500/60 focus:bg-ink-900 focus:outline-none focus:ring-4
            focus:ring-brand-500/15 disabled:opacity-50;
@@ -91,9 +272,9 @@ body {
   /* A compact native select that reads as a pill. Native on purpose: the
      phone keyboard/picker it opens is the one the teacher already knows. */
   .select-pill {
-    @apply cursor-pointer appearance-none rounded-lg border border-white/[0.08] bg-white/[0.05] py-1.5
+    @apply cursor-pointer appearance-none rounded-lg border border-mist/[0.08] bg-mist/[0.05] py-1.5
            pl-2.5 pr-7 text-[13px] font-semibold text-slate-200 transition nums
-           hover:border-white/[0.16] hover:bg-white/[0.08]
+           hover:border-mist/[0.16] hover:bg-mist/[0.08]
            focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/25;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2394a3b8' stroke-width='1.5'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
@@ -116,7 +297,7 @@ body {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
   }
   .chip-neutral {
-    @apply chip bg-white/[0.07] text-slate-300;
+    @apply chip bg-mist/[0.07] text-slate-300;
   }
   .chip-brand {
     @apply chip bg-brand-500/15 text-brand-300;
@@ -133,7 +314,7 @@ body {
      one row on a phone, and a control that runs off the screen is worse than
      one that takes two rows. */
   .segmented {
-    @apply inline-flex flex-wrap gap-1 rounded-xl bg-white/[0.05] p-1;
+    @apply inline-flex flex-wrap gap-1 rounded-xl bg-mist/[0.05] p-1;
   }
   .segmented-item {
     @apply rounded-lg px-3.5 py-1.5 text-[13px] font-semibold text-slate-400 transition
@@ -141,11 +322,11 @@ body {
            focus-visible:ring-brand-400;
   }
   .segmented-item[aria-selected='true'] {
-    @apply bg-white/[0.1] text-white shadow-soft;
+    @apply bg-mist/[0.1] text-slate-100 shadow-soft;
   }
 
   .divider {
-    @apply h-px w-full bg-white/[0.06];
+    @apply h-px w-full bg-mist/[0.06];
   }
 
   /* Section label used across the host workspace. */
@@ -328,4 +509,56 @@ html:lang(si) [class*='tracking-']:not(.nums) {
 }
 html:lang(si) :is(.leading-none, .leading-tight, .leading-snug):not(.nums) {
   line-height: 1.4;
+}
+
+/* ------------------------------------------------- daylight corrections */
+/* The state colours (right, wrong, warning, poll) are Tailwind's and do not
+   follow the palette. Their pale tints - chosen to read on black - vanish on
+   paper, so the light palette swaps each for the deep shade of the same hue.
+   Fills at low alpha are fine as they are. */
+[data-palette='daylight'] .text-emerald-100,
+[data-palette='daylight'] .text-emerald-200,
+[data-palette='daylight'] .text-emerald-300,
+[data-palette='daylight'] .text-emerald-300\/80 {
+  color: #047857;
+}
+[data-palette='daylight'] .text-rose-200,
+[data-palette='daylight'] .text-rose-300 {
+  color: #be123c;
+}
+[data-palette='daylight'] .text-amber-200,
+[data-palette='daylight'] .text-amber-300,
+[data-palette='daylight'] .text-amber-100\/70,
+[data-palette='daylight'] .text-amber-200\/80,
+[data-palette='daylight'] .text-amber-200\/90,
+[data-palette='daylight'] .text-amber-400\/80 {
+  color: #b45309;
+}
+[data-palette='daylight'] .text-sky-300 {
+  color: #0369a1;
+}
+[data-palette='daylight'] .text-orange-200,
+[data-palette='daylight'] .text-orange-300 {
+  color: #c2410c;
+}
+[data-palette='daylight'] .text-emerald-400\/70 {
+  color: #059669;
+}
+/* The countdown, streak and result strokes are inline colours chosen for
+   black; a touch of saturation keeps them from washing out on paper. */
+[data-palette='daylight'] .shadow-soft {
+  box-shadow: 0 1px 2px rgba(20, 19, 31, 0.06), 0 8px 24px -12px rgba(20, 19, 31, 0.18);
+}
+
+/* ------------------------------------------------- contrast corrections */
+/* Six-percent borders are the point of the soft look and the opposite of
+   the point of this palette: every hairline becomes a visible line. */
+[data-palette='contrast'] [class*='border-mist'] {
+  border-color: rgb(255 255 255 / 0.32);
+}
+[data-palette='contrast'] [class*='divide-mist'] > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(255 255 255 / 0.32);
+}
+[data-palette='contrast'] .surface {
+  --surface-alpha: 0.07;
 }

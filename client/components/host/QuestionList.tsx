@@ -69,7 +69,7 @@ export function QuestionList({
                   'group relative flex min-w-0 items-center gap-2.5 rounded-xl border px-2.5 py-2.5 transition ' +
                   (active
                     ? 'border-brand-500/50 bg-brand-500/10'
-                    : 'border-transparent bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.06]')
+                    : 'border-transparent bg-mist/[0.03] hover:border-mist/10 hover:bg-mist/[0.06]')
                 }
               >
                 <button
@@ -81,7 +81,7 @@ export function QuestionList({
                   <span
                     className={
                       'grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[11px] font-bold nums ' +
-                      (active ? 'bg-brand-500 text-white' : 'bg-white/[0.07] text-slate-400')
+                      (active ? 'bg-brand-500 text-onbrand' : 'bg-mist/[0.07] text-slate-400')
                     }
                   >
                     {i + 1}
@@ -175,7 +175,7 @@ export function QuestionList({
       <button
         type="button"
         onClick={onAdd}
-        className="mt-3 w-full rounded-xl border border-dashed border-white/[0.12] px-3 py-2.5 text-[13px] font-semibold text-slate-400 transition hover:border-brand-500/50 hover:bg-brand-500/10 hover:text-brand-200"
+        className="mt-3 w-full rounded-xl border border-dashed border-mist/[0.12] px-3 py-2.5 text-[13px] font-semibold text-slate-400 transition hover:border-brand-500/50 hover:bg-brand-500/10 hover:text-brand-200"
       >
         {t('rail.add')}
       </button>

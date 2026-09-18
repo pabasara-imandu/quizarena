@@ -360,7 +360,7 @@ function WaitingStrip({ text }: { text: string }) {
   return (
     <div
       role="status"
-      className="mt-4 flex items-center justify-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.04] px-4 py-3.5"
+      className="mt-4 flex items-center justify-center gap-3 rounded-2xl border border-mist/[0.07] bg-mist/[0.04] px-4 py-3.5"
     >
       <Dots size="h-2 w-2" />
       <p className="text-sm font-medium text-slate-300">{text}</p>
@@ -507,7 +507,7 @@ function Reveal({
         )}
 
         {!result.correct && !result.neutral && correctText && (
-          <p className="mt-4 rounded-xl bg-white/5 px-4 py-3 text-sm text-slate-400">
+          <p className="mt-4 rounded-xl bg-mist/5 px-4 py-3 text-sm text-slate-400">
             {t.rich('reveal.answerWas', {
               answer: <b className="font-semibold text-slate-100">{correctText}</b>,
             })}
@@ -533,7 +533,7 @@ function Reveal({
               const pct = pollTotal ? Math.round((n / pollTotal) * 100) : 0;
               const mine = result.chosenOptionId === o.id;
               return (
-                <li key={o.id} className="relative overflow-hidden rounded-xl bg-white/[0.05] px-3 py-2 text-sm">
+                <li key={o.id} className="relative overflow-hidden rounded-xl bg-mist/[0.05] px-3 py-2 text-sm">
                   <span
                     className="absolute inset-y-0 left-0 bg-brand-500/25 transition-all duration-700"
                     style={{ width: pct + '%' }}
@@ -559,7 +559,7 @@ function Reveal({
         )}
 
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-white/[0.05] px-3 py-3">
+          <div className="rounded-xl bg-mist/[0.05] px-3 py-3">
             <p className="font-display text-2xl font-bold nums">
               {result.rank ? t.ordinal(result.rank) : '—'}
             </p>
@@ -567,7 +567,7 @@ function Reveal({
               {result.totalPlayers ? t('reveal.yourRankOf', { n: result.totalPlayers }) : t('reveal.yourRank')}
             </p>
           </div>
-          <div className="rounded-xl bg-white/[0.05] px-3 py-3">
+          <div className="rounded-xl bg-mist/[0.05] px-3 py-3">
             <p className="font-display text-2xl font-bold nums text-brand-300">
               {result.score.toLocaleString()}
             </p>

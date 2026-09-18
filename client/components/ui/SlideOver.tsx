@@ -68,9 +68,9 @@ export function SlideOver({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative flex h-full w-full max-w-md animate-slideIn flex-col border-l border-white/[0.08] bg-ink-900 shadow-lift"
+        className="relative flex h-full w-full max-w-md animate-slideIn flex-col border-l border-mist/[0.08] bg-ink-900 shadow-lift"
       >
-        <header className="flex items-start gap-3 border-b border-white/[0.06] px-5 py-4">
+        <header className="flex items-start gap-3 border-b border-mist/[0.06] px-5 py-4">
           <div className="min-w-0 flex-1">
             <h2 className="font-display text-lg font-bold">{title}</h2>
             {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
@@ -87,7 +87,7 @@ export function SlideOver({
 
         <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
 
-        {footer && <div className="border-t border-white/[0.06] px-5 py-4">{footer}</div>}
+        {footer && <div className="border-t border-mist/[0.06] px-5 py-4">{footer}</div>}
       </div>
     </div>
   );
@@ -139,11 +139,11 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         className={
-          'relative flex max-h-[88vh] w-full animate-pop flex-col overflow-hidden rounded-3xl border border-white/[0.08] bg-ink-900 shadow-lift ' +
+          'relative flex max-h-[88vh] w-full animate-pop flex-col overflow-hidden rounded-3xl border border-mist/[0.08] bg-ink-900 shadow-lift ' +
           (wide ? 'max-w-2xl' : 'max-w-lg')
         }
       >
-        <header className="flex items-start gap-3 border-b border-white/[0.06] px-6 py-5">
+        <header className="flex items-start gap-3 border-b border-mist/[0.06] px-6 py-5">
           <div className="min-w-0 flex-1">
             <h2 className="font-display text-xl font-bold">{title}</h2>
             {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}

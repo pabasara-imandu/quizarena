@@ -247,14 +247,14 @@ export function TranslationEditor({
         {ALL_KEYS.length} strings · {Object.keys(saved).length} saved edits
         {meta?.updatedAt ? ' · last saved ' + new Date(meta.updatedAt).toLocaleString() + (meta.updatedBy ? ' by ' + meta.updatedBy : '') : ''}
         {meta?.store && meta.store !== 'netlify-blobs' ? ' · stored in ' + meta.store + ' (local)' : ''}
-        . Curly-brace placeholders such as <code className="rounded bg-white/10 px-1">{'{n}'}</code> must stay in
+        . Curly-brace placeholders such as <code className="rounded bg-mist/10 px-1">{'{n}'}</code> must stay in
         the translation exactly as in the English; they are filled in with numbers and names.
       </p>
 
       {loading ? (
         <p className="py-10 text-center text-sm text-slate-500">Loading saved edits…</p>
       ) : (
-        <div className="surface divide-y divide-white/[0.05]">
+        <div className="surface divide-y divide-mist/[0.05]">
           {visible.length === 0 && (
             <p className="py-10 text-center text-sm text-slate-600">Nothing matches.</p>
           )}
@@ -271,7 +271,7 @@ export function TranslationEditor({
             return (
               <div key={key}>
                 {header && (
-                  <h3 className="bg-white/[0.03] px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                  <h3 className="bg-mist/[0.03] px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
                     {header}
                   </h3>
                 )}
@@ -318,7 +318,7 @@ export function TranslationEditor({
 
       {/* Pinned, like every commit bar in the app: the list is long and the
           save must never be a scroll hunt. */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.07] bg-ink-950/92 px-4 py-3 backdrop-blur-xl sm:px-6">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-mist/[0.07] bg-ink-950/92 px-4 py-3 backdrop-blur-xl sm:px-6">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3">
           <span className="min-w-0 flex-1 basis-48 truncate text-[13px] text-slate-500">
             {notice ? (

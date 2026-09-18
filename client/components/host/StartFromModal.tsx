@@ -163,7 +163,7 @@ export function StartFromModal({
                 'flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-12 transition ' +
                 (dragging
                   ? 'border-brand-400 bg-brand-500/10'
-                  : 'border-white/[0.12] hover:border-brand-500/50 hover:bg-white/[0.03]')
+                  : 'border-mist/[0.12] hover:border-brand-500/50 hover:bg-mist/[0.03]')
               }
             >
               <span className="text-4xl">{busy ? '⏳' : '📄'}</span>
@@ -186,7 +186,7 @@ export function StartFromModal({
               </details>
             </div>
 
-            <div className="mt-3 rounded-xl bg-white/[0.03] px-4 py-3 text-xs leading-relaxed text-slate-500">
+            <div className="mt-3 rounded-xl bg-mist/[0.03] px-4 py-3 text-xs leading-relaxed text-slate-500">
               <b className="text-slate-400">Question Text</b> {t('sf.required')} ·{' '}
               <b className="text-slate-400">Question Type</b> ·{' '}
               <b className="text-slate-400">Option 1–5</b> ·{' '}

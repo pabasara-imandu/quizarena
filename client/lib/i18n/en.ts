@@ -314,6 +314,10 @@ export const en = {
   'img.err.tooBig': 'That image could not be shrunk enough to upload.',
 
   /* -------------------------------------------------- host: room settings */
+  'settings.appearance': 'Appearance',
+  'settings.appearanceHint': 'How QuizArena looks on this device.',
+  'settings.theme': 'Theme',
+  'settings.palette': 'Colours',
   'settings.title': 'Room settings',
   'settings.desc': 'These apply to the whole quiz. Defaults suit most classes.',
   'settings.done': 'Done',

@@ -87,7 +87,7 @@ export function ImagePicker({
             alt=""
             referrerPolicy="no-referrer"
             className={
-              'shrink-0 rounded-lg border border-white/10 bg-black/30 object-cover ' +
+              'shrink-0 rounded-lg border border-mist/10 bg-black/30 object-cover ' +
               (compact ? 'h-12 w-12' : 'h-20 w-20')
             }
             onError={(e) => {
@@ -142,7 +142,7 @@ export function ImagePicker({
                 'rounded-xl border border-dashed px-3 py-2 text-[13px] font-semibold transition ' +
                 (dragging
                   ? 'border-brand-400 bg-brand-500/10 text-brand-200'
-                  : 'border-white/[0.14] text-slate-400 hover:border-brand-500/50 hover:bg-brand-500/[0.07] hover:text-brand-200')
+                  : 'border-mist/[0.14] text-slate-400 hover:border-brand-500/50 hover:bg-brand-500/[0.07] hover:text-brand-200')
               }
             >
               {busy ? t('img.uploading') : t('img.upload', { label: label.toLowerCase() })}

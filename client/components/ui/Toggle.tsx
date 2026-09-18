@@ -22,7 +22,7 @@ export function Toggle({
   return (
     <label
       className={
-        'flex cursor-pointer items-start gap-3 rounded-xl px-3 py-3 transition hover:bg-white/[0.04] ' +
+        'flex cursor-pointer items-start gap-3 rounded-xl px-3 py-3 transition hover:bg-mist/[0.04] ' +
         (disabled ? 'pointer-events-none opacity-40' : '')
       }
     >

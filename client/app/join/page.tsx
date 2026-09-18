@@ -456,7 +456,7 @@ function StudentSession() {
   return (
     <>
       {notice && (
-        <div className="fixed inset-x-0 top-0 z-40 bg-brand-500 px-4 py-2 text-center text-sm font-semibold text-white">
+        <div className="fixed inset-x-0 top-0 z-40 bg-brand-500 px-4 py-2 text-center text-sm font-semibold text-onbrand">
           {notice}
         </div>
       )}
@@ -570,11 +570,11 @@ function FinalScreen({
               {t('final.rankCorrect', { rank: you.rank, correct: you.correctCount, answered: you.answeredCount })}
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-xl bg-white/[0.05] px-3 py-3">
+              <div className="rounded-xl bg-mist/[0.05] px-3 py-3">
                 <p className="font-display text-xl font-bold">{Math.round(you.accuracy * 100)}%</p>
                 <p className="text-xs text-slate-400">{t('final.accuracy')}</p>
               </div>
-              <div className="rounded-xl bg-white/[0.05] px-3 py-3">
+              <div className="rounded-xl bg-mist/[0.05] px-3 py-3">
                 <p className="font-display text-xl font-bold">{you.bestStreak}</p>
                 <p className="text-xs text-slate-400">{t('final.bestStreak')}</p>
               </div>

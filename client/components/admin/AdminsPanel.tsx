@@ -99,7 +99,7 @@ export function AdminsPanel({
           <h2 className="font-display text-lg font-bold">{ROLE_LABEL.super}</h2>
           <span className="text-xs text-slate-500">from admins.json - changed only there</span>
         </div>
-        <ul className="mt-3 divide-y divide-white/[0.05]">
+        <ul className="mt-3 divide-y divide-mist/[0.05]">
           {(data?.superAdmins ?? []).map((e) => (
             <li key={e} className="flex items-center gap-3 py-2 text-sm">
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-500/25 text-[11px] font-bold text-brand-200">
@@ -129,10 +129,10 @@ export function AdminsPanel({
         ) : data.normalAdmins.length === 0 ? (
           <p className="py-6 text-center text-sm text-slate-600">Nobody yet.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-white/[0.05]">
+          <ul className="mt-3 divide-y divide-mist/[0.05]">
             {data.normalAdmins.map((a) => (
               <li key={a.email} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/[0.07] text-[11px] font-bold text-slate-300">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-mist/[0.07] text-[11px] font-bold text-slate-300">
                   {a.email.slice(0, 1).toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1 basis-40 truncate">

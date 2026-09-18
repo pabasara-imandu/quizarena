@@ -291,7 +291,7 @@ function TileFields({
   // on a phone and pushes the whole row off the right edge of the screen.
   return (
     <fieldset className="min-w-0">
-      <ul className="divide-y divide-white/[0.05] rounded-xl border border-white/[0.06]">
+      <ul className="divide-y divide-mist/[0.05] rounded-xl border border-mist/[0.06]">
         {options.map((option, oi) => {
           const showImageField = imageFor === option.id || !!option.image;
           return (
@@ -324,7 +324,7 @@ function TileFields({
                       (markerKind === 'check' ? 'rounded-md ' : 'rounded-full ') +
                       (option.correct
                         ? 'border-emerald-400 bg-emerald-500 text-white'
-                        : 'border-white/20 text-transparent hover:border-emerald-400/60')
+                        : 'border-mist/20 text-transparent hover:border-emerald-400/60')
                     }
                   >
                     ✓
@@ -424,7 +424,7 @@ function ShortAnswerFields({
 
   return (
     <fieldset className="min-w-0">
-      <ul className="divide-y divide-white/[0.05] rounded-xl border border-white/[0.06]">
+      <ul className="divide-y divide-mist/[0.05] rounded-xl border border-mist/[0.06]">
         {accepted.map((answer, i) => (
           <li key={i} className="group flex min-w-0 items-center gap-2.5 px-2.5 py-1.5">
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-xs font-bold text-emerald-300 nums">
@@ -574,7 +574,7 @@ function IconButton({
           ? 'text-brand-300'
           : danger
             ? 'text-slate-600 hover:bg-rose-500/10 hover:text-rose-300'
-            : 'text-slate-600 hover:bg-white/5 hover:text-slate-300')
+            : 'text-slate-600 hover:bg-mist/5 hover:text-slate-300')
       }
     >
       {children}

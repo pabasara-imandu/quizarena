@@ -258,9 +258,17 @@ same features, nothing removed.
 - **Type** — Outfit for display, Inter for body, both self-hosted via `next/font` so a school
   network never blocks a webfont request. Numeric UI (timers, scores, PINs) is tabular so digits
   do not jitter.
-- **Colour** — one violet accent for everything interactive, near-black surfaces with soft
-  elevation rather than visible borders. The Kahoot-style answer tiles stay deliberately vivid:
-  they are the one thing a whole room looks at from a distance.
+- **Colour** — one accent for everything interactive, surfaces with soft elevation rather than
+  visible borders. The Kahoot-style answer tiles stay deliberately vivid: they are the one thing
+  a whole room looks at from a distance.
+- **Themes and palettes** — a theme is a whole look; a palette is one coat of paint on it. The
+  shipped theme is **Aurora** (named for the glow in the corner) with six palettes: Midnight
+  (default), Daylight (light, for bright rooms and weak projectors), Chalkboard, Lagoon, Lanka
+  (maroon and saffron) and High contrast. Chosen under *Settings → Appearance* on the host,
+  remembered per device, applied before the first paint. Every colour a palette may change is a
+  CSS variable under `[data-palette]` in `globals.css`; the answer tiles and the state colours
+  (right, wrong, warning) are not among them. A new palette is one block there and one line in
+  `lib/themes.ts`; a new theme is a new entry with its own palettes.
 - **The result reveal** — the whole card floods green (or red) and a ring draws itself, then
   a tick lands a beat later. A drawn stroke reads as the app *responding* to what the student
   did, and colour-as-background means the verdict is legible from across a room before you

@@ -36,7 +36,7 @@ export function ShortAnswer({
 
   if (submitted) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-center">
+      <div className="rounded-2xl border border-mist/10 bg-mist/5 p-5 text-center">
         <p className="text-sm text-slate-400">{t('short.yourAnswer')}</p>
         <p className="mt-1 break-words font-display text-2xl font-bold">
           {submittedText || value || '—'}

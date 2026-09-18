@@ -27,7 +27,7 @@ export function QuestionMedia({
   if (!src || failed) return null;
 
   return (
-    <div className={'overflow-hidden rounded-xl border border-white/10 bg-black/30 ' + className}>
+    <div className={'overflow-hidden rounded-xl border border-mist/10 bg-black/30 ' + className}>
       <img
         src={src}
         alt={alt}

@@ -70,7 +70,7 @@ export function PastResults({ onOpen }: { onOpen: (data: Analytics) => void }) {
         {items.map((item) => (
           <li
             key={item.id}
-            className="group flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-white/[0.04] px-3 py-2.5 transition hover:bg-white/[0.07]"
+            className="group flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-mist/[0.04] px-3 py-2.5 transition hover:bg-mist/[0.07]"
           >
             <button
               type="button"
