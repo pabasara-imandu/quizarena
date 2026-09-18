@@ -517,8 +517,8 @@ function Reveal({
         {/* The teacher's "why". Shown to everyone, right or wrong - the moment
             after a reveal is when a student is most receptive. */}
         {explanation && (
-          <p className="mt-4 rounded-xl border border-brand-400/20 bg-brand-500/[0.08] px-4 py-3 text-left text-sm leading-relaxed text-slate-200">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-brand-300">
+          <p className="why-box mt-4 rounded-xl border border-brand-400/20 bg-brand-500/[0.08] px-4 py-3 text-left text-sm leading-relaxed text-slate-200">
+            <span className="why-label mb-1 block text-[11px] font-bold uppercase tracking-wide text-brand-300">
               {t('reveal.why')}
             </span>
             {explanation}

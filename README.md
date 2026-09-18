@@ -261,14 +261,20 @@ same features, nothing removed.
 - **Colour** — one accent for everything interactive, surfaces with soft elevation rather than
   visible borders. The Kahoot-style answer tiles stay deliberately vivid: they are the one thing
   a whole room looks at from a distance.
-- **Themes and palettes** — a theme is a whole look; a palette is one coat of paint on it. The
-  shipped theme is **Aurora** (named for the glow in the corner) with six palettes: Midnight
-  (default), Daylight (light, for bright rooms and weak projectors), Chalkboard, Lagoon, Lanka
-  (maroon and saffron) and High contrast. Chosen under *Settings → Appearance* on the host,
-  remembered per device, applied before the first paint. Every colour a palette may change is a
-  CSS variable under `[data-palette]` in `globals.css`; the answer tiles and the state colours
-  (right, wrong, warning) are not among them. A new palette is one block there and one line in
-  `lib/themes.ts`; a new theme is a new entry with its own palettes.
+- **Themes and palettes** — a theme is a whole look: typeface, shapes, textures, how a tile and
+  the "why" box are drawn. A palette is one coat of paint on a theme. Six themes ship:
+  **Aurora** (the original, with six palettes: Midnight, Daylight, Chalkboard, Lagoon, Lanka,
+  High contrast), **Old School** (a green board in a wooden frame, chalk handwriting, paper
+  notes), **Arcade** (pixel type, scanlines, square neon blocks), **Exam Paper** (ruled paper,
+  serif, red margin, lettered options), **Playground** (candy colours, thick outlines, hard
+  shadows, for primary) and **Terminal** (green on black, monospace, brackets). Chosen under
+  *Settings → Appearance* on the host — every phone in the room follows the teacher's choice
+  and returns to its own afterwards. Remembered per device and applied before the first paint.
+  Nothing about a theme is JavaScript: each is one block in `app/themes.css` on
+  `html[data-theme]`, setting the colour, font, radius and shadow variables the components
+  already read and restyling a few marked classes (`.surface`, `.btn`, `.answer-tile`,
+  `.why-box`, `.pin-display`). Fonts are declared once in `app/layout.tsx` with `preload:
+  false`, so a device downloads only the faces of the theme it is showing.
 - **The result reveal** — the whole card floods green (or red) and a ring draws itself, then
   a tick lands a beat later. A drawn stroke reads as the app *responding* to what the student
   did, and colour-as-background means the verdict is legible from across a room before you

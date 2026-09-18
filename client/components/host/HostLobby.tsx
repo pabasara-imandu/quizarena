@@ -72,7 +72,7 @@ export function HostLobby({
           <p className="mt-1.5 break-all text-[15px] font-medium text-brand-300">{joinUrl || '…'}</p>
 
           <p className="eyebrow mt-10">{t('hl.gamePin')}</p>
-          <p className="mt-1 font-display text-[clamp(3.5rem,13vw,7.5rem)] font-extrabold leading-none tracking-[0.08em] nums">
+          <p className="pin-display mt-1 font-display text-[clamp(3.5rem,13vw,7.5rem)] font-extrabold leading-none tracking-[0.08em] nums">
             {pin}
           </p>
 

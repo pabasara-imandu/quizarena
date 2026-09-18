@@ -76,6 +76,7 @@ export function ResultMark({ status, size = 92 }: { status: ResultStatus; size?:
       height={size}
       className="mx-auto block"
       role="img"
+      data-status={status}
       aria-label={t(('result.' + status) as 'result.correct')}
       style={{ filter: 'drop-shadow(0 0 14px ' + stroke + '55)' }}
     >

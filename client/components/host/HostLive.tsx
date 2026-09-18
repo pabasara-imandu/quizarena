@@ -238,8 +238,8 @@ export function HostLive({
         {/* The teacher's "why", surfaced with the answer so it can be read
             aloud while the class is still looking at the reveal. */}
         {showingReveal && (reveal?.explanation || question?.explanation) && (
-          <div className="rounded-2xl border border-brand-400/20 bg-brand-500/[0.07] px-5 py-4">
-            <p className="eyebrow text-brand-300/80">{t('live.why')}</p>
+          <div className="why-box rounded-2xl border border-brand-400/20 bg-brand-500/[0.07] px-5 py-4">
+            <p className="why-label eyebrow text-brand-300/80">{t('live.why')}</p>
             <p className="mt-1 text-[15px] leading-relaxed text-slate-200">
               {reveal?.explanation ?? question?.explanation}
             </p>

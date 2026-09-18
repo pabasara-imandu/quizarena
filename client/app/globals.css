@@ -7,6 +7,20 @@
    an alpha. Midnight is the default and also the fallback: any element
    outside a `[data-palette]` scope still gets these. A new palette is one
    more block here and one line in lib/themes.ts; nothing else moves. */
+:root {
+  /* Aurora's shape and depth. Other themes override these in themes.css. */
+  --r-sm: 0.25rem;
+  --r-md: 0.375rem;
+  --r-lg: 0.5rem;
+  --r-xl: 0.875rem;
+  --r-2xl: 1.125rem;
+  --r-3xl: 1.5rem;
+  --r-full: 9999px;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.3), 0 20px 40px -16px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 0 0 1px rgb(var(--brand-500) / 0.35), 0 12px 32px -12px rgb(var(--brand-500) / 0.5);
+}
+
 :root,
 [data-palette='midnight'] {
   color-scheme: dark;
@@ -514,39 +528,45 @@ html:lang(si) :is(.leading-none, .leading-tight, .leading-snug):not(.nums) {
 /* ------------------------------------------------- daylight corrections */
 /* The state colours (right, wrong, warning, poll) are Tailwind's and do not
    follow the palette. Their pale tints - chosen to read on black - vanish on
-   paper, so the light palette swaps each for the deep shade of the same hue.
-   Fills at low alpha are fine as they are. */
-[data-palette='daylight'] .text-emerald-100,
-[data-palette='daylight'] .text-emerald-200,
-[data-palette='daylight'] .text-emerald-300,
-[data-palette='daylight'] .text-emerald-300\/80 {
+   paper, so every light scheme (Daylight, Exam Paper, Playground) swaps each
+   for the deep shade of the same hue. Fills at low alpha are fine as they are. */
+[data-scheme='light'] .text-emerald-100,
+[data-scheme='light'] .text-emerald-200,
+[data-scheme='light'] .text-emerald-300,
+[data-scheme='light'] .text-emerald-300\/80 {
   color: #047857;
 }
-[data-palette='daylight'] .text-rose-200,
-[data-palette='daylight'] .text-rose-300 {
+[data-scheme='light'] .text-rose-200,
+[data-scheme='light'] .text-rose-300 {
   color: #be123c;
 }
-[data-palette='daylight'] .text-amber-200,
-[data-palette='daylight'] .text-amber-300,
-[data-palette='daylight'] .text-amber-100\/70,
-[data-palette='daylight'] .text-amber-200\/80,
-[data-palette='daylight'] .text-amber-200\/90,
-[data-palette='daylight'] .text-amber-400\/80 {
+[data-scheme='light'] .text-amber-200,
+[data-scheme='light'] .text-amber-300,
+[data-scheme='light'] .text-amber-100\/70,
+[data-scheme='light'] .text-amber-200\/80,
+[data-scheme='light'] .text-amber-200\/90,
+[data-scheme='light'] .text-amber-400\/80 {
   color: #b45309;
 }
-[data-palette='daylight'] .text-sky-300 {
+[data-scheme='light'] .text-sky-300 {
   color: #0369a1;
 }
-[data-palette='daylight'] .text-orange-200,
-[data-palette='daylight'] .text-orange-300 {
+[data-scheme='light'] .text-orange-200,
+[data-scheme='light'] .text-orange-300 {
   color: #c2410c;
 }
-[data-palette='daylight'] .text-emerald-400\/70 {
+[data-scheme='light'] .text-emerald-400\/70 {
   color: #059669;
 }
-/* The countdown, streak and result strokes are inline colours chosen for
-   black; a touch of saturation keeps them from washing out on paper. */
-[data-palette='daylight'] .shadow-soft {
+/* The grey strokes of a timed-out or skipped result are drawn for black and
+   all but vanish on paper. */
+[data-scheme='light'] svg[data-status='timeout'] .mark-stroke {
+  stroke: #475569;
+}
+[data-scheme='light'] svg[data-status='skipped'] .mark-stroke {
+  stroke: #b45309;
+}
+[data-scheme='light'] .shadow-soft {
   box-shadow: 0 1px 2px rgba(20, 19, 31, 0.06), 0 8px 24px -12px rgba(20, 19, 31, 0.18);
 }
 

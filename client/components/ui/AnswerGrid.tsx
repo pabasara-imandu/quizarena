@@ -72,8 +72,10 @@ export function AnswerGrid({
             disabled={!interactive}
             onClick={() => onSelect?.(option.id)}
             aria-pressed={isChosen}
+            data-tile={i % TILES.length}
+            data-letter={String.fromCharCode(65 + (i % 26))}
             className={[
-              'group relative overflow-hidden rounded-2xl p-4 text-left font-semibold text-white',
+              'answer-tile group relative overflow-hidden rounded-2xl p-4 text-left font-semibold text-white',
               'shadow-soft transition-all duration-300 focus:outline-none focus-visible:ring-4',
               tile.bg,
               tile.ring,
@@ -94,8 +96,13 @@ export function AnswerGrid({
             )}
 
             <span className="relative flex items-center gap-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-black/20 text-lg">
-                {tile.glyph}
+              {/* The shape sits in its own span so a theme can hide it and
+                  letter the badge instead (Exam Paper, Arcade, Terminal). */}
+              <span
+                className="answer-glyph grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-black/20 text-lg"
+                data-letter={String.fromCharCode(65 + (i % 26))}
+              >
+                <span>{tile.glyph}</span>
               </span>
 
               {option.image && (

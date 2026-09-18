@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { DEFAULT_PALETTE, DEFAULT_THEME, findTheme, normalizeAppearance, type Appearance } from './themes';
+import { DEFAULT_PALETTE, DEFAULT_THEME, normalizeAppearance, schemeOf, type Appearance } from './themes';
 
 /**
  * Which theme and palette this device shows.
@@ -45,8 +45,9 @@ export function applyAppearance(a: Appearance) {
   const root = document.documentElement;
   root.dataset.theme = a.theme;
   root.dataset.palette = a.palette;
-  const palette = findTheme(a.theme).palettes.find((p) => p.id === a.palette);
-  root.style.colorScheme = palette?.scheme ?? 'dark';
+  const scheme = schemeOf(a);
+  root.dataset.scheme = scheme;
+  root.style.colorScheme = scheme;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -68,9 +69,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const setAppearance = useCallback((next: Partial<Appearance>) => {
     setState((cur) => {
       const merged = normalizeAppearance({ ...cur, ...next });
-      // A new theme keeps the palette only if that theme has it.
+      // A new theme keeps the palette only if that theme has it. The scheme
+      // is stored alongside so the boot script can set it without knowing
+      // the theme list.
       try {
-        localStorage.setItem(APPEARANCE_KEY, JSON.stringify(merged));
+        localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ ...merged, scheme: schemeOf(merged) }));
       } catch {
         /* a choice that does not persist is still a choice for this visit */
       }
@@ -94,4 +97,4 @@ export function useTheme() {
  * purpose: it must not wait for React. Mirrors `normalizeAppearance` for
  * the ids it can check cheaply; the provider corrects anything odd.
  */
-export const APPEARANCE_BOOT_SCRIPT = `(function(){try{var a=JSON.parse(localStorage.getItem(${JSON.stringify(APPEARANCE_KEY)})||"null");if(!a)return;var d=document.documentElement;if(typeof a.theme==="string")d.dataset.theme=a.theme;if(typeof a.palette==="string")d.dataset.palette=a.palette;if(a.palette==="daylight")d.style.colorScheme="light";}catch(e){}})();`;
+export const APPEARANCE_BOOT_SCRIPT = `(function(){try{var a=JSON.parse(localStorage.getItem(${JSON.stringify(APPEARANCE_KEY)})||"null");if(!a)return;var d=document.documentElement;if(typeof a.theme==="string")d.dataset.theme=a.theme;if(typeof a.palette==="string")d.dataset.palette=a.palette;if(a.scheme==="light"||a.palette==="daylight"){d.style.colorScheme="light";d.dataset.scheme="light";}}catch(e){}})();`;

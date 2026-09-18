@@ -1,6 +1,19 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Noto_Sans_Sinhala, Outfit } from 'next/font/google';
+import {
+  Caveat,
+  Fredoka,
+  Inter,
+  JetBrains_Mono,
+  Libre_Baskerville,
+  Noto_Sans_Sinhala,
+  Nunito,
+  Outfit,
+  Patrick_Hand,
+  Press_Start_2P,
+  VT323,
+} from 'next/font/google';
 import './globals.css';
+import './themes.css';
 import { SocketProvider } from '@/lib/socket';
 import { LanguageProvider } from '@/lib/i18n';
 import { APPEARANCE_BOOT_SCRIPT, ThemeProvider } from '@/lib/theme';
@@ -27,6 +40,28 @@ const sinhala = Noto_Sans_Sinhala({
   preload: false,
 });
 
+/**
+ * The faces the other themes wear. Declared here so next/font self-hosts
+ * them, but none is preloaded: a browser fetches a font file only when text
+ * on the page actually uses that family, so a device on Aurora downloads
+ * none of these. Each theme's CSS block points --font-display and
+ * --font-sans at the pair it wants.
+ */
+// next/font reads these calls at build time, so every option is written out
+// literally - no shared object, no spread.
+const caveat = Caveat({ subsets: ['latin'], weight: ['500', '700'], variable: '--font-caveat', display: 'swap', preload: false });
+const patrick = Patrick_Hand({ subsets: ['latin'], weight: '400', variable: '--font-patrick', display: 'swap', preload: false });
+const pressStart = Press_Start_2P({ subsets: ['latin'], weight: '400', variable: '--font-press', display: 'swap', preload: false });
+const vt323 = VT323({ subsets: ['latin'], weight: '400', variable: '--font-vt', display: 'swap', preload: false });
+const baskerville = Libre_Baskerville({ subsets: ['latin'], weight: ['400', '700'], style: ['normal', 'italic'], variable: '--font-baskerville', display: 'swap', preload: false });
+const fredoka = Fredoka({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--font-fredoka', display: 'swap', preload: false });
+const nunito = Nunito({ subsets: ['latin'], weight: ['500', '700', '800'], variable: '--font-nunito', display: 'swap', preload: false });
+const jetbrains = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-jetbrains', display: 'swap', preload: false });
+
+const themeFontClasses = [caveat, patrick, pressStart, vt323, baskerville, fredoka, nunito, jetbrains]
+  .map((f) => f.variable)
+  .join(' ');
+
 export const metadata: Metadata = {
   title: 'QuizArena — live classroom quizzing',
   description: 'Host real-time quizzes for a whole class, with live scoring and integrity checks.',
@@ -48,7 +83,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // server rendered and the ones React finds differ on purpose.
     <html
       lang="en"
-      className={sans.variable + ' ' + display.variable + ' ' + sinhala.variable}
+      className={sans.variable + ' ' + display.variable + ' ' + sinhala.variable + ' ' + themeFontClasses}
       suppressHydrationWarning
     >
       <head>

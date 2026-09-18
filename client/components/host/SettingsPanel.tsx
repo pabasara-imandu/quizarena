@@ -49,24 +49,44 @@ export function SettingsPanel({
           <div className="px-3">
             <p className="field-hint mt-0 mb-3">{t('settings.appearanceHint')}</p>
 
-            <label className="mb-3 flex items-center justify-between gap-3 text-[13px] text-slate-400">
-              {t('settings.theme')}
-              <select
-                className="select-pill"
-                value={appearance.theme}
-                aria-label={t('settings.theme')}
-                onChange={(e) => setAppearance({ theme: e.target.value })}
-              >
-                {THEMES.map((th) => (
-                  <option key={th.id} value={th.id}>
-                    {th.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <span className="field-label">{t('settings.theme')}</span>
+            {/* Each card is drawn in the theme's own colours and face, so
+                the choice is made by looking, not by reading a name. */}
+            <div className="mb-4 grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('settings.theme')}>
+              {THEMES.map((th) => {
+                const active = th.id === appearance.theme;
+                return (
+                  <button
+                    key={th.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    title={th.hint}
+                    onClick={() => setAppearance({ theme: th.id })}
+                    className={
+                      'overflow-hidden rounded-xl border text-left transition ' +
+                      (active ? 'border-brand-500 ring-2 ring-brand-500/40' : 'border-mist/[0.1] hover:border-mist/[0.25]')
+                    }
+                    style={{ background: th.preview.bg, color: th.preview.ink }}
+                  >
+                    <span className="block px-3 pt-2.5" style={{ fontFamily: th.preview.font, fontSize: 17, fontWeight: 700 }}>
+                      {th.name}
+                    </span>
+                    <span className="mx-3 mb-2.5 mt-2 flex items-center gap-1.5">
+                      <span className="h-3 flex-1 rounded-sm" style={{ background: th.preview.card, border: '1px solid rgba(0,0,0,0.25)' }} />
+                      <span className="h-3 w-8 rounded-sm" style={{ background: th.preview.accent }} />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-            <span className="field-label">{t('settings.palette')}</span>
-            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('settings.palette')}>
+            {theme.palettes.length > 1 && <span className="field-label">{t('settings.palette')}</span>}
+            <div
+              className={'grid grid-cols-2 gap-2' + (theme.palettes.length > 1 ? '' : ' hidden')}
+              role="radiogroup"
+              aria-label={t('settings.palette')}
+            >
               {theme.palettes.map((p) => {
                 const active = p.id === appearance.palette;
                 return (

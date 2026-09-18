@@ -59,15 +59,26 @@ const config: Config = {
         display: ['var(--font-display)', 'var(--font-sinhala)', 'ui-rounded', 'system-ui', 'sans-serif'],
         sans: ['var(--font-sans)', 'var(--font-sinhala)', 'system-ui', 'sans-serif'],
       },
+      /**
+       * Shape and depth are variables too, so a theme can square every
+       * corner (Arcade) or trade soft elevation for a hard offset shadow
+       * (Playground) without touching a component. Aurora's values are the
+       * defaults in globals.css.
+       */
       borderRadius: {
-        xl: '0.875rem',
-        '2xl': '1.125rem',
-        '3xl': '1.5rem',
+        DEFAULT: 'var(--r-sm)',
+        sm: 'var(--r-sm)',
+        md: 'var(--r-md)',
+        lg: 'var(--r-lg)',
+        xl: 'var(--r-xl)',
+        '2xl': 'var(--r-2xl)',
+        '3xl': 'var(--r-3xl)',
+        full: 'var(--r-full)',
       },
       boxShadow: {
-        soft: '0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.6)',
-        lift: '0 2px 4px rgba(0,0,0,0.3), 0 20px 40px -16px rgba(0,0,0,0.7)',
-        glow: '0 0 0 1px rgb(var(--brand-500) / 0.35), 0 12px 32px -12px rgb(var(--brand-500) / 0.5)',
+        soft: 'var(--shadow-soft)',
+        lift: 'var(--shadow-lift)',
+        glow: 'var(--shadow-glow)',
       },
       keyframes: {
         pop: {
