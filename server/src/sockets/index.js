@@ -1,7 +1,7 @@
 import { config } from '../config.js';
 import { roomStore } from '../state/roomStore.js';
 import { PHASE } from '../game/room.js';
-import { normalizeQuiz, normalizeSettings, ValidationError } from '../game/quizSchema.js';
+import { normalizeQuiz, normalizeSettings, ValidationError, normalizeAppearance } from '../game/quizSchema.js';
 import { createBucket, sanitizeNickname } from '../utils/rateLimit.js';
 import { signInEnabled, verifyHostIdToken } from '../auth/google.js';
 import {
@@ -194,6 +194,25 @@ export function registerSocketHandlers(io) {
           )
         );
       }
+    });
+
+    /**
+     * The host changed the look on their own screen; the room follows.
+     *
+     * Allowed in any phase - a teacher who switches to Daylight when the
+     * blinds go up mid-quiz should not have to wait for the next one. Only
+     * the appearance changes; nothing about the quiz or the scoring moves.
+     */
+    socket.on('host:appearance', (payload, cb) => {
+      const room = withHostRoom(cb);
+      if (!room) return;
+      room.settings.appearance = normalizeAppearance(payload?.appearance);
+      room.touch?.();
+      io.to(channels.players(room.pin)).emit('room:updated', {
+        quizTitle: room.quiz.title,
+        settings: room.settings,
+      });
+      respond(cb, ok({ settings: room.settings }));
     });
 
     socket.on('host:start', (_payload, cb) => {

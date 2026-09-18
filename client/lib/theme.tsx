@@ -14,13 +14,22 @@ import { DEFAULT_PALETTE, DEFAULT_THEME, findTheme, normalizeAppearance, type Ap
 export const APPEARANCE_KEY = 'quizarena.appearance.v1';
 
 interface ThemeContext {
+  /** This device's own choice. */
   appearance: Appearance;
   setAppearance: (next: Partial<Appearance>) => void;
+  /**
+   * The room's look, while a student is in one. It wins over the device's
+   * choice for as long as it is set and leaves that choice untouched.
+   */
+  roomAppearance: Appearance | null;
+  setRoomAppearance: (next: unknown | null) => void;
 }
 
 const Ctx = createContext<ThemeContext>({
   appearance: { theme: DEFAULT_THEME, palette: DEFAULT_PALETTE },
   setAppearance: () => {},
+  roomAppearance: null,
+  setRoomAppearance: () => {},
 });
 
 function readStored(): Appearance {
@@ -42,10 +51,19 @@ export function applyAppearance(a: Appearance) {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [appearance, setState] = useState<Appearance>({ theme: DEFAULT_THEME, palette: DEFAULT_PALETTE });
+  const [roomAppearance, setRoom] = useState<Appearance | null>(null);
 
   useEffect(() => setState(readStored()), []);
 
-  useEffect(() => applyAppearance(appearance), [appearance]);
+  useEffect(() => applyAppearance(roomAppearance ?? appearance), [appearance, roomAppearance]);
+
+  const setRoomAppearance = useCallback((next: unknown | null) => {
+    setRoom((cur) => {
+      if (!next) return cur === null ? cur : null;
+      const merged = normalizeAppearance(next);
+      return cur && cur.theme === merged.theme && cur.palette === merged.palette ? cur : merged;
+    });
+  }, []);
 
   const setAppearance = useCallback((next: Partial<Appearance>) => {
     setState((cur) => {
@@ -60,7 +78,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const value = useMemo(() => ({ appearance, setAppearance }), [appearance, setAppearance]);
+  const value = useMemo(
+    () => ({ appearance, setAppearance, roomAppearance, setRoomAppearance }),
+    [appearance, setAppearance, roomAppearance, setRoomAppearance]
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

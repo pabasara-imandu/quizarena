@@ -16,6 +16,7 @@ import {
 } from '@/lib/quizDraft';
 import { useT, type Translator } from '@/lib/i18n';
 import { en } from '@/lib/i18n/en';
+import { useTheme } from '@/lib/theme';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -110,6 +111,7 @@ interface Props {
  */
 export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdit }: Props) {
   const t = useT();
+  const { appearance } = useTheme();
   const [title, setTitle] = useState(editing?.quiz.title ?? t('creator.defaultTitle'));
   const [questions, setQuestions] = useState<Question[]>(
     editing?.quiz.questions ?? [FIRST_QUESTION]
@@ -246,7 +248,9 @@ export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdi
               type="button"
               className="btn-primary btn-lg"
               disabled={busy || incompleteCount > 0}
-              onClick={() => onLaunch({ title, questions }, settings)}
+              // The room takes this device's look with it, so every phone
+              // that joins shows what the teacher is looking at.
+              onClick={() => onLaunch({ title, questions }, { ...settings, appearance })}
             >
               {busy
                 ? editing

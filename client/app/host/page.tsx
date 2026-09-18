@@ -26,6 +26,7 @@ import { HostIdentity } from '@/components/host/HostIdentity';
 import { loadIdentity, signInConfigured, type HostIdentity as Identity } from '@/lib/googleAuth';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { describeError, useT } from '@/lib/i18n';
+import { useTheme } from '@/lib/theme';
 
 const STORE_KEY = 'quizarena.host';
 
@@ -36,6 +37,7 @@ export default function HostPage() {
   // not change their identity and re-run the effects that depend on them.
   const tRef = useRef(t);
   tRef.current = t;
+  const { appearance } = useTheme();
 
   const [pin, setPin] = useState<string | null>(null);
   const [hostToken, setHostToken] = useState<string | null>(null);
@@ -128,6 +130,18 @@ export default function HostPage() {
       .catch(() => sessionStorage.removeItem(STORE_KEY))
     );
   }, [status, emit, applyState, connectTo, serverUrl]);
+
+  /**
+   * The room follows this screen's look. Changing it in Settings while a
+   * room is open - in the lobby, or mid-quiz when the blinds go up - reaches
+   * every phone at once; nothing else about the room changes.
+   */
+  useEffect(() => {
+    if (!pin || status !== 'connected') return;
+    emit('host:appearance', { appearance }).catch(() => {
+      /* the next launch or edit carries it anyway */
+    });
+  }, [appearance, pin, status, emit]);
 
   /* --------------------------------------------------------- socket events */
 

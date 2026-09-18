@@ -18,6 +18,7 @@ import type {
 
 import { findServerForPin } from '@/lib/servers';
 import { describeError, useT } from '@/lib/i18n';
+import { useTheme } from '@/lib/theme';
 
 const STORE_KEY = 'quizarena.player';
 
@@ -46,6 +47,7 @@ function StudentSession() {
   // not hand them a new identity and re-trigger the auto-rejoin effect.
   const tRef = useRef(t);
   tRef.current = t;
+  const { setRoomAppearance } = useTheme();
 
   const [session, setSession] = useState<Session | null>(null);
   const [phase, setPhase] = useState<Phase>('lobby');
@@ -87,6 +89,12 @@ function StudentSession() {
 
   const sessionRef = useRef<Session | null>(null);
   sessionRef.current = session;
+
+  // In a room, the phone wears the room's look; out of one, its own. The
+  // settings arrive with the join state and again on every room:updated.
+  useEffect(() => {
+    setRoomAppearance(session ? (settings.appearance ?? null) : null);
+  }, [session, settings.appearance, setRoomAppearance]);
 
   const flashNotice = useCallback((message: string, ms = 4000) => {
     setNotice(message);

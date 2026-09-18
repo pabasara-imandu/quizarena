@@ -44,6 +44,7 @@ export class Room {
     this.hostSocketId = hostSocketId;
     this.quiz = quiz;
     this.settings = {
+      appearance: { theme: 'aurora', palette: 'midnight' },
       shuffleAnswers: true,
       shuffleQuestions: false,
       speedBonus: true,

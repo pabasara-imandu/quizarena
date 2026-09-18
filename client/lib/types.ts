@@ -53,6 +53,8 @@ export interface Quiz {
 }
 
 export interface RoomSettings {
+  /** The host's look, carried to every phone in the room. */
+  appearance?: { theme: string; palette: string };
   shuffleAnswers: boolean;
   shuffleQuestions: boolean;
   speedBonus: boolean;

@@ -183,9 +183,27 @@ export function normalizeQuestion(q, i = 0) {
   return { ...base, options };
 }
 
+/**
+ * The look the host chose, carried to every phone in the room.
+ *
+ * The server knows nothing about themes - it keeps two short slugs and hands
+ * them on. The client maps an id it does not recognise to its default, so a
+ * room made by a newer build never breaks an older phone.
+ */
+const SLUG = /^[a-z0-9-]{1,32}$/;
+export function normalizeAppearance(input) {
+  const a = input && typeof input === 'object' ? input : {};
+  const slug = (v) => (typeof v === 'string' && SLUG.test(v) ? v : null);
+  return {
+    theme: slug(a.theme) ?? 'aurora',
+    palette: slug(a.palette) ?? 'midnight',
+  };
+}
+
 export function normalizeSettings(input) {
   const s = input && typeof input === 'object' ? input : {};
   return {
+    appearance: normalizeAppearance(s.appearance),
     shuffleAnswers: s.shuffleAnswers !== false,
     shuffleQuestions: !!s.shuffleQuestions,
     speedBonus: s.speedBonus !== false,

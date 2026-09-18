@@ -1046,6 +1046,14 @@ await asyncTest('a forged or expired pass is refused by the endpoints', async ()
   }
 });
 
+test('a room carries the host\'s look and refuses junk in its place', () => {
+  const ok = normalizeSettings({ appearance: { theme: 'aurora', palette: 'lanka' } });
+  assert.deepEqual(ok.appearance, { theme: 'aurora', palette: 'lanka' });
+  const bad = normalizeSettings({ appearance: { theme: '<script>', palette: 42 } });
+  assert.deepEqual(bad.appearance, { theme: 'aurora', palette: 'midnight' });
+  assert.deepEqual(normalizeSettings({}).appearance, { theme: 'aurora', palette: 'midnight' });
+});
+
 console.log('\nnicknames in any script');
 
 test('a Sinhala nickname survives whole', () => {
