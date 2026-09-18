@@ -239,6 +239,42 @@ body {
   animation: result-wash 620ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
 }
 
+/* ------------------------------------------------------- access denied */
+/* The lock body rises into place, the shackle drops shut, the whole thing
+   shakes once, and the words fade in after it - a verdict, not a form. */
+@keyframes lock-body-in {
+  from { transform: translateY(10px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+@keyframes lock-shackle-in {
+  from { transform: translateY(-9px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+@keyframes lock-shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px) rotate(-3deg); }
+  40%      { transform: translateX(6px) rotate(3deg); }
+  60%      { transform: translateX(-4px) rotate(-2deg); }
+  80%      { transform: translateX(4px) rotate(2deg); }
+}
+@keyframes denied-text-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.access-lock {
+  animation: lock-shake 480ms cubic-bezier(0.36, 0.07, 0.19, 0.97) 1150ms both;
+}
+.access-lock-body {
+  transform-origin: 32px 38px;
+  animation: lock-body-in 360ms cubic-bezier(0.2, 0.8, 0.3, 1) 520ms both;
+}
+.access-lock-shackle {
+  animation: lock-shackle-in 300ms cubic-bezier(0.6, 0, 0.25, 1) 860ms both;
+}
+.access-denied-text {
+  animation: denied-text-in 420ms ease-out 1300ms both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* The global reset below collapses these animations to nothing, which would
      leave every stroke stuck at full dash-offset - i.e. invisible. Pin them to
@@ -249,6 +285,14 @@ body {
   .result-wash {
     transform: none !important;
     opacity: 1 !important;
+  }
+  .access-lock,
+  .access-lock-body,
+  .access-lock-shackle,
+  .access-denied-text {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 

@@ -4,8 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { serverList } from '@/lib/servers';
 import { TranslationEditor } from '@/components/admin/TranslationEditor';
+import { AdminsPanel } from '@/components/admin/AdminsPanel';
+import { AccessDenied } from '@/components/admin/AccessDenied';
 import { Segmented } from '@/components/ui/Toggle';
 import { mountSignInButton, signInConfigured, type HostIdentity } from '@/lib/googleAuth';
+import { ROLE_LABEL, type AdminRole } from '@/lib/adminRoles';
 
 const IDENTITY_KEY = 'quizarena.adminIdentity.v1';
 const REFRESH_MS = 8000;
@@ -23,6 +26,18 @@ interface AdminIdentity {
   name: string;
   email: string;
   picture: string | null;
+  /** Local dev only: which kind of admin to pretend to be. */
+  devRole?: AdminRole;
+}
+
+/** What the site said once it had checked the sign-in. */
+interface Access {
+  role: AdminRole;
+  email: string;
+  name: string;
+  /** Signed proof for the quiz servers; null when the site has no ADMIN_TOKEN. */
+  pass: string | null;
+  fleetHint: string | null;
 }
 
 function loadAdmin(): AdminIdentity | null {
@@ -37,11 +52,20 @@ function loadAdmin(): AdminIdentity | null {
   }
 }
 
-/** The headers every admin request carries: the Google token, or the dev bypass. */
-function authHeadersFor(identity: AdminIdentity | null): Record<string, string> {
+/**
+ * The headers every admin request carries. The site gets the Google token
+ * and checks it against the lists; a quiz server gets the pass the site
+ * signed, since it has no lists to check. The dev bypass rides along
+ * locally and means nothing anywhere else.
+ */
+function authHeadersFor(identity: AdminIdentity | null, access: Access | null): Record<string, string> {
   const headers: Record<string, string> = {};
   if (identity?.credential && identity.credential !== 'dev') headers.Authorization = 'Bearer ' + identity.credential;
-  if (DEV_EMAIL) headers['x-dev-admin-email'] = DEV_EMAIL;
+  if (access?.pass) headers['x-admin-pass'] = access.pass;
+  if (DEV_EMAIL && identity?.credential === 'dev') {
+    headers['x-dev-admin-email'] = DEV_EMAIL;
+    if (identity.devRole) headers['x-dev-admin-role'] = identity.devRole;
+  }
   return headers;
 }
 
@@ -108,20 +132,30 @@ function duration(sec?: number) {
  */
 export default function AdminPage() {
   const [identity, setIdentity] = useState<AdminIdentity | null>(null);
-  /** What the site said about this account: checking, admitted, or why not. */
-  const [access, setAccess] = useState<{ state: 'idle' | 'checking' | 'ok' | 'denied'; message?: string }>({
+  /** What the site said about this account: checking, admitted, or denied. */
+  const [access, setAccess] = useState<{ state: 'idle' | 'checking' | 'ok' | 'denied'; admin?: Access }>({
     state: 'idle',
   });
-  const [tab, setTab] = useState<'fleet' | 'words'>('fleet');
+  const [tab, setTab] = useState<'fleet' | 'words' | 'admins'>('fleet');
   const [servers, setServers] = useState<ServerView[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastAt, setLastAt] = useState<number | null>(null);
   const [auto, setAuto] = useState(true);
   const identityRef = useRef<AdminIdentity | null>(null);
   identityRef.current = identity;
+  const accessRef = useRef<Access | null>(null);
+  accessRef.current = access.admin ?? null;
   const slot = useRef<HTMLDivElement>(null);
 
-  const entered = access.state === 'ok';
+  const entered = access.state === 'ok' && !!access.admin;
+  const admin = access.admin ?? null;
+
+  // A tab this admin cannot see (Admins, for a normal admin) falls back to
+  // the fleet rather than rendering nothing.
+  useEffect(() => {
+    if (tab === 'admins' && admin && admin.role !== 'super') setTab('fleet');
+  }, [tab, admin]);
+  const headers = useCallback(() => authHeadersFor(identityRef.current, accessRef.current), []);
 
   useEffect(() => setIdentity(loadAdmin()), []);
 
@@ -151,15 +185,27 @@ export default function AdminPage() {
     }
     let cancelled = false;
     setAccess({ state: 'checking' });
-    fetch('/api/admin/whoami', { headers: authHeadersFor(identity), cache: 'no-store' })
+    fetch('/api/admin/whoami', { headers: authHeadersFor(identity, null), cache: 'no-store' })
       .then(async (res) => {
         const body = await res.json().catch(() => ({}));
         if (cancelled) return;
-        if (res.ok && body.ok) setAccess({ state: 'ok' });
-        else setAccess({ state: 'denied', message: body.error || 'Not allowed (HTTP ' + res.status + ').' });
+        if (res.ok && body.ok && (body.role === 'super' || body.role === 'normal')) {
+          setAccess({
+            state: 'ok',
+            admin: {
+              role: body.role,
+              email: body.email,
+              name: body.name,
+              pass: body.pass ?? null,
+              fleetHint: body.fleetHint ?? null,
+            },
+          });
+        } else {
+          setAccess({ state: 'denied' });
+        }
       })
       .catch(() => {
-        if (!cancelled) setAccess({ state: 'denied', message: 'Could not reach the site to check your account.' });
+        if (!cancelled) setAccess({ state: 'denied' });
       });
     return () => {
       cancelled = true;
@@ -174,6 +220,7 @@ export default function AdminPage() {
     }
     setIdentity(null);
     setServers([]);
+    setTab('fleet');
   };
 
   const refresh = useCallback(async () => {
@@ -186,7 +233,7 @@ export default function AdminPage() {
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), 12000);
           const res = await fetch(url + '/api/admin/sessions', {
-            headers: authHeadersFor(identityRef.current),
+            headers: authHeadersFor(identityRef.current, accessRef.current),
             signal: controller.signal,
             cache: 'no-store',
           });
@@ -244,25 +291,24 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (!entered || tab !== 'fleet') return;
+    if (!entered || tab !== 'fleet' || (!admin?.pass && identity?.credential !== 'dev')) return;
     refresh();
     if (!auto) return;
     const timer = setInterval(refresh, REFRESH_MS);
     return () => clearInterval(timer);
-  }, [entered, tab, auto, refresh]);
+  }, [entered, tab, auto, refresh, admin?.pass, identity?.credential]);
 
   if (!entered) {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-5 py-16">
         <div className="surface p-6">
-          <h1 className="font-display text-2xl font-bold">Admin</h1>
-          <p className="mt-2 text-sm leading-relaxed text-slate-400">
-            The fleet view and the translation editor. Sign in with a Google account that is on the
-            admin list (<code className="rounded bg-white/10 px-1.5 py-0.5 text-xs">admins.json</code>).
-          </p>
+          <h1 className="text-center font-display text-2xl font-bold">
+            Quiz<span className="text-brand-400">Arena</span>{' '}
+            <span className="text-slate-500">admin</span>
+          </h1>
 
           {!identity && (
-            <div className="mt-5 flex flex-col items-center gap-3">
+            <div className="mt-6 flex flex-col items-center gap-3">
               {signInConfigured() ? (
                 <div ref={slot} className="gsi-slot min-h-[40px]" aria-label="Sign in with Google" />
               ) : (
@@ -270,47 +316,42 @@ export default function AdminPage() {
                   This build has no Google client id, so nobody can sign in here.
                 </p>
               )}
-              {DEV_EMAIL && (
-                <button
-                  type="button"
-                  className="btn-secondary btn-sm"
-                  onClick={() =>
-                    setIdentity({
-                      credential: 'dev',
-                      expiresAt: Date.now() + 12 * 3600_000,
-                      name: 'Dev admin',
-                      email: DEV_EMAIL,
-                      picture: null,
-                    })
-                  }
-                >
-                  Continue as {DEV_EMAIL} (local dev)
-                </button>
-              )}
+              {DEV_EMAIL &&
+                (['super', 'normal'] as const).map((role) => (
+                  <button
+                    key={role}
+                    type="button"
+                    className="btn-secondary btn-sm"
+                    onClick={() =>
+                      setIdentity({
+                        credential: 'dev',
+                        expiresAt: Date.now() + 12 * 3600_000,
+                        name: 'Dev ' + ROLE_LABEL[role],
+                        email: DEV_EMAIL,
+                        picture: null,
+                        devRole: role,
+                      })
+                    }
+                  >
+                    Continue as {ROLE_LABEL[role]} (local dev)
+                  </button>
+                ))}
             </div>
           )}
 
           {identity && access.state === 'checking' && (
-            <p className="mt-5 text-center text-sm text-slate-400">Checking {identity.email}…</p>
-          )}
-
-          {identity && access.state === 'denied' && (
-            <div className="mt-5">
-              <p
-                role="alert"
-                className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-200"
-              >
-                {access.message}
-              </p>
-              <button type="button" className="btn-secondary mt-3 w-full" onClick={signOut}>
-                Try another account
-              </button>
+            <div className="mt-6 flex items-center justify-center gap-2" role="status">
+              {[0, 150, 300].map((delay) => (
+                <span
+                  key={delay}
+                  className="h-2.5 w-2.5 animate-breathe rounded-full bg-brand-400"
+                  style={{ animationDelay: delay + 'ms' }}
+                />
+              ))}
             </div>
           )}
 
-          <Link href="/" className="mt-4 block text-center text-xs text-slate-600 hover:text-slate-400">
-            Back to QuizArena
-          </Link>
+          {identity && access.state === 'denied' && <AccessDenied onRetry={signOut} />}
         </div>
       </main>
     );
@@ -334,7 +375,7 @@ export default function AdminPage() {
         <Link href="/" className="font-display text-lg font-extrabold tracking-tight">
           Quiz<span className="text-brand-400">Arena</span>
         </Link>
-        <span className="chip-neutral text-[10px] uppercase tracking-[0.14em]">Admin</span>
+        <span className="chip-brand text-[11px]">{admin ? ROLE_LABEL[admin.role] : 'Admin'}</span>
 
         <div className="ml-auto flex flex-wrap items-center gap-3 text-xs text-slate-500">
           {tab === 'fleet' && (
@@ -358,8 +399,8 @@ export default function AdminPage() {
               </button>
             </>
           )}
-          <span className="hidden max-w-[12rem] truncate text-slate-400 sm:inline" title={identity?.email}>
-            {identity?.name}
+          <span className="hidden max-w-[12rem] truncate text-slate-400 sm:inline" title={admin?.email}>
+            {admin?.name ?? identity?.name}
           </span>
           <button
             type="button"
@@ -379,13 +420,26 @@ export default function AdminPage() {
           options={[
             { value: 'fleet', label: 'Fleet' },
             { value: 'words', label: 'Translations' },
+            // Only a super admin manages admins - the tab is not offered
+            // to anyone else, and the site refuses them regardless.
+            ...(admin?.role === 'super' ? [{ value: 'admins' as const, label: 'Admins' }] : []),
           ]}
         />
       </div>
 
-      {tab === 'words' && <TranslationEditor authHeaders={() => authHeadersFor(identityRef.current)} />}
+      {tab === 'words' && <TranslationEditor authHeaders={headers} />}
 
-      {tab === 'fleet' && (
+      {tab === 'admins' && admin?.role === 'super' && (
+        <AdminsPanel authHeaders={headers} canEdit self={admin.email} />
+      )}
+
+      {tab === 'fleet' && admin && !admin.pass && identity?.credential !== 'dev' && (
+        <div className="surface border-amber-400/25 bg-amber-500/[0.08] p-4 text-sm text-amber-200">
+          {admin.fleetHint ?? 'The fleet view needs ADMIN_TOKEN on the site.'}
+        </div>
+      )}
+
+      {tab === 'fleet' && (admin?.pass || identity?.credential === 'dev') && (
       <>
 
       {misordered.length > 0 && (

@@ -2,13 +2,17 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Who may open the admin page.
+ * The super admins - the accounts that can never be removed from the page.
  *
- * A list of Google account emails, from ADMIN_EMAILS if set, otherwise from
- * admins.json at the repository root (or beside this server, for a deploy
- * that copies only server/). Read once at boot: the list changes with a
- * deploy, not at runtime, and a file read on every request is a file that
- * can go missing mid-lesson.
+ * Google account emails, from ADMIN_EMAILS if set, otherwise from admins.json
+ * at the repository root (or beside this server, for a deploy that copies
+ * only server/). Read once at boot: this list changes with a deploy, not at
+ * runtime, and a file read on every request is a file that can go missing
+ * mid-lesson.
+ *
+ * Normal admins - added and removed from the admin page - are not in this
+ * file. They live in the site's store, and reach a quiz server as a signed
+ * pass (see adminPass.js), never as a list.
  *
  * Empty means closed. There is no "no list, so everyone" mode: an operations
  * view over every live classroom is not something to leave open because a
@@ -28,7 +32,8 @@ function readFile() {
     if (!existsSync(candidate)) continue;
     try {
       const parsed = JSON.parse(readFileSync(candidate, 'utf8'));
-      const list = Array.isArray(parsed) ? parsed : parsed?.admins;
+      // `admins` is the older name for the same list.
+      const list = Array.isArray(parsed) ? parsed : parsed?.superAdmins ?? parsed?.admins;
       return { emails: parseList((list || []).join(',')), source: candidate };
     } catch (err) {
       console.warn('[admin] could not read ' + candidate + ': ' + err.message);

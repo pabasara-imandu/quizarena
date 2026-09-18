@@ -10,6 +10,7 @@ import { buildMatrixCsv } from '../game/exportCsv.js';
 import { ValidationError } from '../game/quizSchema.js';
 import { config } from '../config.js';
 import { adminEmails, isAdminEmail } from '../auth/admins.js';
+import { verifyAdminPass } from '../auth/adminPass.js';
 import { signInEnabled, verifyIdToken } from '../auth/google.js';
 
 export const api = Router();
@@ -89,15 +90,20 @@ api.get('/sample-quiz', (_req, res) => res.json(sampleQuiz));
 /**
  * Who is asking, and are they allowed.
  *
- * The admin page signs in with Google and sends the ID token as a bearer;
- * the token is verified against Google and the email checked against the
- * admin list. Nothing is stored - every request proves itself afresh, and
- * the token expires on its own within the hour.
+ * Three doors, checked in this order:
+ *  - the shared ADMIN_TOKEN, for scripts and curl, in constant time;
+ *  - an admin pass in x-admin-pass: the site verified a Google account
+ *    against the whole admin list (super admins from admins.json, normal
+ *    admins from its store) and signed the outcome with that same token -
+ *    this is how the admin page reaches every server, whichever kind of
+ *    admin is looking;
+ *  - a Google ID token as a bearer, checked here against the super admins
+ *    only, because that file is all a server has.
+ * Nothing is stored; every request proves itself afresh.
  *
- * The older shared ADMIN_TOKEN still works for scripts and curl, checked in
- * constant time. With neither an admin list nor a token this endpoint is
- * closed rather than open: a dashboard listing every live classroom in the
- * country is not something to leave unlocked because a file was forgotten.
+ * With none of these configured this endpoint is closed rather than open: a
+ * dashboard listing every live classroom in the country is not something to
+ * leave unlocked because a file was forgotten.
  */
 function tokenOk(req) {
   if (!config.adminToken) return false;
@@ -123,14 +129,24 @@ function devBypass(req) {
   const allowed = (process.env.ADMIN_DEV_BYPASS_EMAIL || '').trim().toLowerCase();
   if (!allowed) return null;
   const given = String(req.get('x-dev-admin-email') || '').trim().toLowerCase();
-  return given && given === allowed ? { email: allowed, name: 'Dev admin', via: 'dev' } : null;
+  if (!given || given !== allowed) return null;
+  const role = String(req.get('x-dev-admin-role') || 'super') === 'normal' ? 'normal' : 'super';
+  return { email: allowed, name: 'Dev admin', role, via: 'dev' };
 }
 
-/** Resolves to `{ email, name, via }` for an admin, or a reason string. */
+/** Resolves to `{ email, name, role, via }` for an admin, or a reason string. */
 async function whoIsAdmin(req) {
-  if (tokenOk(req)) return { email: null, name: 'Shared token', via: 'token' };
+  if (tokenOk(req)) return { email: null, name: 'Shared token', role: 'super', via: 'token' };
   const dev = devBypass(req);
   if (dev) return dev;
+
+  const pass = String(req.get('x-admin-pass') || '');
+  if (pass) {
+    if (!config.adminToken) return 'This server has no ADMIN_TOKEN, so it cannot check an admin pass from the site.';
+    const claims = verifyAdminPass(config.adminToken, pass);
+    if (!claims) return 'That admin pass is not valid or has expired. Reload the admin page.';
+    return { email: claims.email, name: claims.email, role: claims.role, via: 'pass' };
+  }
 
   const idToken = bearerOf(req);
   if (!idToken) {
@@ -142,16 +158,16 @@ async function whoIsAdmin(req) {
   const claims = await verifyIdToken(idToken);
   if (!claims) return 'That Google sign-in could not be verified. Sign in again.';
   if (!isAdminEmail(claims.email)) {
-    return claims.email + ' is not on the admin list. Add it to admins.json (or ADMIN_EMAILS) and redeploy.';
+    return claims.email + ' is not a super admin on this server.';
   }
-  return { email: claims.email, name: claims.name || claims.email, via: 'google' };
+  return { email: claims.email, name: claims.name || claims.email, role: 'super', via: 'google' };
 }
 
 /** Lets the admin page confirm access before it fans out to the fleet. */
 api.get('/admin/whoami', async (req, res) => {
   const who = await whoIsAdmin(req);
   if (typeof who === 'string') return res.status(403).json({ ok: false, error: who });
-  res.json({ ok: true, email: who.email, name: who.name, via: who.via, label: config.serverLabel });
+  res.json({ ok: true, email: who.email, name: who.name, role: who.role, via: who.via, label: config.serverLabel });
 });
 
 /**

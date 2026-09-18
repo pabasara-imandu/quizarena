@@ -190,8 +190,8 @@ hold a WebSocket open.
 | `SERVER_INDEX` | **yes in a fleet** | 0-based. **Unique per server**, and must match the server's position in the client's `NEXT_PUBLIC_SERVER_URLS`. Decides the PIN range this instance mints: `0` → `1xxxxx`, `1` → `2xxxxx`, … |
 | `SERVER_LABEL` | no | Name on the admin dashboard. Defaults to `server-N`. |
 | `SOFT_CAPACITY` | no | Students this instance aims to stay under before new rooms are placed elsewhere. Default 120. Not a hard cap — a running quiz is never turned away. |
-| `ADMIN_EMAILS` | no | Google accounts allowed into `/admin`, comma-separated. Overrides `admins.json` at the repo root - use it to keep the list out of a public repo. With neither, the admin view is closed. |
-| `ADMIN_TOKEN` | no | Older shared secret for scripts and `curl` (`x-admin-token`). The `/admin` page no longer uses it. |
+| `ADMIN_EMAILS` | no | The **super admins** (ලොකු Admin), comma-separated. Overrides `admins.json` at the repo root - use it to keep the list out of a public repo. With neither, the admin view is closed. |
+| `ADMIN_TOKEN` | for `/admin` fleet view | Shared secret, **the same value on every server and on Netlify**. The site signs an *admin pass* with it after checking a sign-in, and each server checks that signature - that is how a normal admin, who is on no server's list, can still watch the fleet. Also accepted raw as `x-admin-token` by scripts. |
 | `GOOGLE_CLIENT_ID` | for host sign-in | OAuth client ID from Google Cloud Console (Web application; add your app origin as an authorised JavaScript origin). Same value as the client's `NEXT_PUBLIC_GOOGLE_CLIENT_ID`. **Unset = nobody can sign in and the anonymous cap is not applied.** |
 | `GOOGLE_ALLOWED_DOMAINS` | no | Comma-separated email domains that count as signed in, e.g. `ananda.lk`. Empty accepts any Google account. |
 | `ANON_MAX_PLAYERS` | no | Room size for a host who has not signed in, when sign-in is available. Default 20. |
@@ -202,7 +202,8 @@ hold a WebSocket open.
 |---|---|---|
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | for host sign-in | Same value as the server's `GOOGLE_CLIENT_ID`. Empty hides the sign-in button. Baked in at build time. |
 | `NEXT_PUBLIC_SERVER_URLS` | for a fleet | Comma-separated list of every server, **in `SERVER_INDEX` order**. Takes precedence over `NEXT_PUBLIC_SERVER_URL`. Baked in at build time. |
-| `ADMIN_EMAILS` | no | Same meaning as on the server: who may save translations from `/admin`. Overrides `admins.json`. Server-side only, not baked into the page. |
+| `ADMIN_EMAILS` | no | Same meaning as on the server: the super admins. Overrides `admins.json`. Server-side only, not baked into the page. |
+| `ADMIN_TOKEN` | for `/admin` fleet view | The same value as on every server. Without it `/admin` still works - sign-in, translations, admin management - but the fleet view says what to set. Server-side only. |
 | `NEXT_PUBLIC_SERVER_URL` | only for split hosting | The server's public URL. **Leave empty** behind a reverse proxy (Option 3) so the client uses its own origin. **Baked in at build time** — changing it requires a rebuild, not just a restart. |
 | `BUILD_STANDALONE` | no | `true` emits Next's self-contained bundle, which the Dockerfile needs. Leave unset on Netlify/Vercel/Render — their adapters expect a normal build and a standalone one makes every route 404. |
 
@@ -288,11 +289,25 @@ still works; the admin dashboard warns you that it happened.
    Order matters: position in this list must equal that server's `SERVER_INDEX`.
    Rebuild the client after changing it — it is baked in at build time.
 
-3. **Put the admins' Google accounts in `admins.json`** at the repository root (or in
-   `ADMIN_EMAILS` on Render *and* Netlify to keep them out of the repo), then **open
-   `/admin`** and sign in with one of them. You get every server's health, every live
-   session, fleet capacity, a loud warning if the list is out of order - and the
-   translation editor (see below). Anyone not on the list is told so by name.
+3. **Put the super admins' Google accounts in `admins.json`** at the repository root
+   (or in `ADMIN_EMAILS` on Render *and* Netlify to keep them out of the repo), set the
+   same `ADMIN_TOKEN` on every server and on Netlify, then **open `/admin`** and sign in.
+   You get every server's health, every live session, fleet capacity, a loud warning if
+   the list is out of order, the translation editor, and - for a super admin - the
+   admin list. Anyone else sees a locked door and nothing more.
+
+### Two kinds of admin
+
+| | ලොකු Admin (super) | පොඩි admin (normal) |
+|---|---|---|
+| Listed in | `admins.json` / `ADMIN_EMAILS` - changed only there, with a deploy | the **Admins** tab of `/admin`, by a super admin, live |
+| Fleet view | yes | yes |
+| Translation editor | yes | yes |
+| Add / remove පොඩි admins | yes | no |
+| Can be removed from the page | never | yes, at once |
+
+A removed පොඩි admin is refused by the site on their next request. A quiz server keeps
+honouring an admin pass it has already seen until that pass expires - an hour at most.
 
 ### Editing the translation from the live site
 

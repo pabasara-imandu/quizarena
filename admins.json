@@ -1,6 +1,7 @@
 {
-  "_comment": "Google accounts allowed into /admin - the fleet view and the translation editor. One email per entry; capitals do not matter. Edit, commit, and both the servers and the site pick it up on their next deploy. To keep the list out of the public repo, set ADMIN_EMAILS (comma-separated) on Render and Netlify instead; it wins over this file.",
-  "admins": [
-    "pabasaraimadu31@gmail.com"
+  "_comment": "The super admins (ලොකු Admin): Google accounts that can open /admin and, from there, add or remove the normal admins (පොඩි admin). Super admins can only be changed here - edit, commit, redeploy. Capitals do not matter. To keep this list out of the public repo, set ADMIN_EMAILS (comma-separated) on Render and Netlify instead; it wins over this file.",
+  "superAdmins": [
+    "pabasaraimadu31@gmail.com",
+    "mahimadin2000@gmail.com"
   ]
 }

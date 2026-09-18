@@ -19,6 +19,7 @@ import { roomStore } from '../src/state/roomStore.js';
 import { parseQuizWorkbook } from '../src/game/importQuiz.js';
 import { graphemes, sanitizeNickname, sanitizeText } from '../src/utils/rateLimit.js';
 import { _parseAdminList } from '../src/auth/admins.js';
+import { signAdminPass, verifyAdminPass } from '../src/auth/adminPass.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -1011,6 +1012,35 @@ await asyncTest('the admin endpoints are closed to a request with no sign-in', a
     // A stale shared token is not a key either.
     const stale = await fetch(base + '/api/admin/sessions', { headers: { 'x-admin-token': 'wrong' } });
     assert.equal(stale.status, 403);
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});
+
+test('an admin pass is accepted only with the right secret, intact, and in date', () => {
+  const now = 1_000_000;
+  const pass = signAdminPass('shared-secret', { email: 'a@b.lk', role: 'normal', expiresAt: now + 60_000 });
+  assert.deepEqual(verifyAdminPass('shared-secret', pass, now), { email: 'a@b.lk', role: 'normal', expiresAt: now + 60_000 });
+  assert.equal(verifyAdminPass('other-secret', pass, now), null, 'a server with a different token refuses it');
+  assert.equal(verifyAdminPass('shared-secret', pass, now + 60_001), null, 'expired');
+  // Promote yourself by editing the payload: the signature no longer matches.
+  const [body] = pass.split('.');
+  const forged = Buffer.from(JSON.stringify({ e: 'a@b.lk', r: 'super', x: now + 60_000 })).toString('base64url');
+  assert.equal(verifyAdminPass('shared-secret', forged + '.' + pass.split('.')[1], now), null, 'tampered');
+  assert.equal(verifyAdminPass('shared-secret', body, now), null, 'no signature at all');
+  assert.equal(verifyAdminPass('', pass, now), null, 'a server with no token cannot accept any pass');
+  assert.equal(signAdminPass('', { email: 'a@b.lk', role: 'super', expiresAt: now }), null);
+});
+
+await asyncTest('a forged or expired pass is refused by the endpoints', async () => {
+  const app = express();
+  app.use('/api', api);
+  const server = app.listen(0);
+  await new Promise((r) => server.once('listening', r));
+  const base = 'http://127.0.0.1:' + server.address().port;
+  try {
+    const res = await fetch(base + '/api/admin/whoami', { headers: { 'x-admin-pass': 'not.real' } });
+    assert.equal(res.status, 403);
   } finally {
     await new Promise((r) => server.close(r));
   }
