@@ -16,7 +16,16 @@ export async function GET(_request: Request, { params }: Params) {
     return NextResponse.json({ lang, ...stored, store: storeName() }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     console.error('[i18n] read failed', err);
-    return NextResponse.json({ error: 'The translation store could not be read.' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error:
+          'The translation store could not be read (' +
+          storeName() +
+          '): ' +
+          (err instanceof Error ? err.name + ' - ' + err.message : String(err)),
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -58,7 +67,13 @@ export async function PUT(request: Request, { params }: Params) {
   } catch (err) {
     console.error('[i18n] write failed', err);
     return NextResponse.json(
-      { error: 'The translation store could not be written (' + storeName() + ').' },
+      {
+        error:
+          'The translation store could not be written (' +
+          storeName() +
+          '): ' +
+          (err instanceof Error ? err.name + ' - ' + err.message : String(err)),
+      },
       { status: 500 }
     );
   }

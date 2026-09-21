@@ -1,21 +1,26 @@
 import { NextResponse } from 'next/server';
 import { ROLE_LABEL } from '@/lib/adminRoles';
 import { isSuperAdmin, superAdminEmails, verifyAdmin, verifySuperAdmin } from '@/lib/server/admins';
-import { isEmail, readNormalAdmins, writeNormalAdmins } from '@/lib/server/adminStore';
+import { isEmail, readNormalAdmins, writeNormalAdmins, type NormalAdmin } from '@/lib/server/adminStore';
 import { openStore } from '@/lib/server/store';
 
 export const dynamic = 'force-dynamic';
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
-async function listing() {
+async function listing(normalAdmins?: NormalAdmin[]) {
   return {
     superAdmins: superAdminEmails(),
-    normalAdmins: await readNormalAdmins(),
+    // After a write the caller passes what it wrote: the store is eventually
+    // consistent, and a read straight after a write may not see it yet.
+    normalAdmins: normalAdmins ?? (await readNormalAdmins()),
     labels: ROLE_LABEL,
     store: openStore('admins').name,
   };
 }
+
+const explain = (what: string, err: unknown) =>
+  what + ' (' + openStore('admins').name + '): ' + (err instanceof Error ? err.name + ' - ' + err.message : String(err));
 
 /** Both lists. Any admin may look; only a super admin may change them. */
 export async function GET(request: Request) {
@@ -25,7 +30,7 @@ export async function GET(request: Request) {
     return NextResponse.json(await listing(), { headers: NO_STORE });
   } catch (err) {
     console.error('[admins] read failed', err);
-    return NextResponse.json({ error: 'The admin list could not be read.' }, { status: 500, headers: NO_STORE });
+    return NextResponse.json({ error: explain('The admin list could not be read', err) }, { status: 500, headers: NO_STORE });
   }
 }
 
@@ -54,11 +59,12 @@ export async function POST(request: Request) {
     if (current.some((a) => a.email === email)) {
       return NextResponse.json({ error: email + ' is already a ' + ROLE_LABEL.normal + '.' }, { status: 409, headers: NO_STORE });
     }
-    await writeNormalAdmins([...current, { email, addedBy: admin.email, addedAt: Date.now() }]);
-    return NextResponse.json({ ok: true, ...(await listing()) }, { headers: NO_STORE });
+    const next = [...current, { email, addedBy: admin.email, addedAt: Date.now() }];
+    await writeNormalAdmins(next);
+    return NextResponse.json({ ok: true, ...(await listing(next)) }, { headers: NO_STORE });
   } catch (err) {
     console.error('[admins] write failed', err);
-    return NextResponse.json({ error: 'The admin list could not be saved.' }, { status: 500, headers: NO_STORE });
+    return NextResponse.json({ error: explain('The admin list could not be saved', err) }, { status: 500, headers: NO_STORE });
   }
 }
 
@@ -81,10 +87,11 @@ export async function DELETE(request: Request) {
     if (!current.some((a) => a.email === email)) {
       return NextResponse.json({ error: email + ' is not on the list.' }, { status: 404, headers: NO_STORE });
     }
-    await writeNormalAdmins(current.filter((a) => a.email !== email));
-    return NextResponse.json({ ok: true, ...(await listing()) }, { headers: NO_STORE });
+    const next = current.filter((a) => a.email !== email);
+    await writeNormalAdmins(next);
+    return NextResponse.json({ ok: true, ...(await listing(next)) }, { headers: NO_STORE });
   } catch (err) {
     console.error('[admins] write failed', err);
-    return NextResponse.json({ error: 'The admin list could not be saved.' }, { status: 500, headers: NO_STORE });
+    return NextResponse.json({ error: explain('The admin list could not be saved', err) }, { status: 500, headers: NO_STORE });
   }
 }

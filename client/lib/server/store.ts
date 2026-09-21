@@ -28,7 +28,21 @@ export function openStore(storeName: string): KeyValueStore {
   try {
     // Throws synchronously when the Netlify environment is absent - that is
     // how we know to fall back locally.
-    const blobs = getStore({ name: storeName, consistency: 'strong' });
+    //
+    // Eventual consistency, deliberately. A Next.js function on Netlify is
+    // given an edge URL but not the uncached one that strong consistency
+    // needs, so asking for "strong" throws on every read and write before
+    // a single request is made - which is what "the translation store could
+    // not be written" was. Callers that need to show what they just wrote
+    // use the value they wrote, not a read-back.
+    //
+    // The fetch is the platform's own with caching off: Next.js patches the
+    // global fetch for its data cache, and a store must never read a cached
+    // copy of itself.
+    const blobs = getStore({
+      name: storeName,
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, cache: 'no-store' }),
+    });
     store = {
       name: 'netlify-blobs',
       read: (key) => blobs.get(key, { type: 'text' }),
