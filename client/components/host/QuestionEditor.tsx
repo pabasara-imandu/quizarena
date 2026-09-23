@@ -319,7 +319,9 @@ function TileFields({
                     aria-label={t('editor.markCorrect', { n: oi + 1 })}
                     aria-pressed={!!option.correct}
                     className={
-                      'grid h-5 w-5 shrink-0 place-items-center border-2 text-[10px] transition ' +
+                      // A finger needs more than twenty pixels, and this is the
+                      // control that says which answer is the right one.
+                      'grid h-5 w-5 [@media(pointer:coarse)]:h-7 [@media(pointer:coarse)]:w-7 shrink-0 place-items-center border-2 text-[10px] transition ' +
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 ' +
                       (markerKind === 'check' ? 'rounded-md ' : 'rounded-full ') +
                       (option.correct
@@ -569,7 +571,7 @@ function IconButton({
       aria-label={label}
       title={label}
       className={
-        'grid h-7 w-7 place-items-center rounded-lg text-xs transition disabled:opacity-20 ' +
+        'grid h-7 w-7 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 place-items-center rounded-lg text-xs transition disabled:opacity-20 ' +
         (active
           ? 'text-brand-300'
           : danger

@@ -29,7 +29,11 @@ export function HostIdentity({
     if (identity || !slot.current || !signInConfigured()) return;
     const el = slot.current;
     el.innerHTML = '';
-    mountSignInButton(el, onChange).catch(() => {
+    // Google sizes its button to its own label in the page's language, and
+    // "Sign in with Google" in Sinhala is wider than a small phone's header
+    // has to spare. The short label keeps the header to two rows.
+    const compact = window.innerWidth < 640;
+    mountSignInButton(el, onChange, { text: compact ? 'signin' : 'signin_with' }).catch(() => {
       /* offline - the page works without it */
     });
   }, [identity, onChange]);

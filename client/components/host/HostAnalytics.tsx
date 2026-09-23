@@ -469,7 +469,48 @@ function StudentBreakdown({ data, onReport }: { data: Analytics; onReport: (play
 
   return (
     <div className="surface overflow-hidden">
-      <div className="overflow-x-auto">
+      {/* A phone gets a list, not a table. Eight columns in 390 pixels is a
+          card the teacher has to drag sideways to read, with the marks and
+          the report button parked off the screen; tapping a name here opens
+          the full report, which is the detailed view anyway. */}
+      <ul className="divide-y divide-mist/5 sm:hidden">
+        {matrix.rows.map((row) => {
+          const p = data.players.find((x) => x.id === row.playerId);
+          const flagged = p ? p.strikes + p.tabSwitches > 0 : false;
+          return (
+            <li key={row.playerId}>
+              <button
+                type="button"
+                onClick={() => onReport(row.playerId)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition active:bg-mist/[0.06]"
+                aria-label={t('st.reportAria', { name: row.nickname })}
+              >
+                <span className="w-5 shrink-0 nums text-sm text-slate-500">{row.rank}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{row.nickname}</span>
+                  <span className="mt-0.5 block text-xs nums text-slate-500">
+                    {pct(p?.accuracy ?? 0)} · {p?.correctCount ?? 0}/{p?.answeredCount ?? 0} ·{' '}
+                    {secs(p?.averageResponseMs ?? null)}
+                    {flagged && p && (
+                      <span className="text-amber-300">
+                        {' · ' + t('st.flagsValue', { tab: p.tabSwitches, fs: p.fullscreenExits })}
+                      </span>
+                    )}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block font-display font-bold nums text-brand-300">
+                    {row.score.toLocaleString()}
+                  </span>
+                  <span className="text-[11px] text-slate-500">{t('st.report')} ›</span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="hidden overflow-x-auto sm:block">
         <table className="w-full min-w-[640px] text-sm">
           <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>

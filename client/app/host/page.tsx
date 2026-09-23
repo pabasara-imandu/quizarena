@@ -360,7 +360,11 @@ export default function HostPage() {
           </span>
         )}
 
-        <div className="ml-auto flex items-center gap-3 text-xs text-slate-500">
+        {/* Wraps, and may start a row of its own: Google's sign-in button is
+            sized by Google in whatever language the page is in, and on a
+            phone that one button plus the language menu is wider than the
+            screen. Wrapping is what keeps the page from sliding sideways. */}
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-2 text-xs text-slate-500">
           <LanguageSwitcher />
           <HostIdentity identity={identity} onChange={setIdentity} />
           <span
@@ -373,7 +377,12 @@ export default function HostPage() {
                   : 'bg-rose-400')
             }
           />
-          {status === 'connected' ? rtt + 'ms' : status}
+          {/* The round-trip time is for a laptop's status corner. On a phone
+              it is the difference between one header row and two, and the
+              dot beside it already says the thing that matters. */}
+          <span className={status === 'connected' ? 'hidden sm:inline' : ''}>
+            {status === 'connected' ? rtt + 'ms' : status}
+          </span>
         </div>
       </header>
 

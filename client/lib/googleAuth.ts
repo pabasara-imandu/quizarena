@@ -159,7 +159,9 @@ function loadScript(): Promise<void> {
  */
 export async function mountSignInButton(
   parent: HTMLElement,
-  onSignedIn: (identity: HostIdentity) => void
+  onSignedIn: (identity: HostIdentity) => void,
+  /** "signin" is the short label - two words instead of four, for a phone. */
+  { text = 'signin_with' }: { text?: 'signin_with' | 'signin' } = {}
 ): Promise<void> {
   const clientId = googleClientId();
   if (!clientId) return;
@@ -181,7 +183,7 @@ export async function mountSignInButton(
     theme: 'filled_black',
     size: 'medium',
     shape: 'pill',
-    text: 'signin_with',
+    text,
     logo_alignment: 'left',
   });
 }

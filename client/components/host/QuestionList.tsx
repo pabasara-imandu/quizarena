@@ -134,7 +134,7 @@ export function QuestionList({
                     onClick={() => onMove(i, -1)}
                     disabled={i === 0}
                     aria-label={t('rail.moveUp', { n: i + 1 })}
-                    className="rounded px-2 py-0.5 text-[10px] leading-none text-slate-500 transition hover:text-slate-100 disabled:opacity-20"
+                    className="rounded px-2 py-0.5 [@media(pointer:coarse)]:px-3 [@media(pointer:coarse)]:py-2 text-[10px] leading-none text-slate-500 transition hover:text-slate-100 disabled:opacity-20"
                   >
                     ▲
                   </button>
@@ -143,7 +143,7 @@ export function QuestionList({
                     onClick={() => onMove(i, 1)}
                     disabled={i === questions.length - 1}
                     aria-label={t('rail.moveDown', { n: i + 1 })}
-                    className="rounded px-2 py-0.5 text-[10px] leading-none text-slate-500 transition hover:text-slate-100 disabled:opacity-20"
+                    className="rounded px-2 py-0.5 [@media(pointer:coarse)]:px-3 [@media(pointer:coarse)]:py-2 text-[10px] leading-none text-slate-500 transition hover:text-slate-100 disabled:opacity-20"
                   >
                     ▼
                   </button>
@@ -155,7 +155,7 @@ export function QuestionList({
                   disabled={questions.length === 1}
                   aria-label={t('rail.delete', { n: i + 1 })}
                   className={
-                    'shrink-0 rounded px-2 py-1 text-xs text-slate-600 transition hover:text-rose-300 disabled:opacity-0 ' +
+                    'shrink-0 rounded px-2 py-1 [@media(pointer:coarse)]:px-3 [@media(pointer:coarse)]:py-2.5 text-xs text-slate-600 transition hover:text-rose-300 disabled:opacity-0 ' +
                     (active
                       ? 'opacity-100'
                       : 'opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100')

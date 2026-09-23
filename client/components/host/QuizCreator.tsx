@@ -230,7 +230,11 @@ export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdi
             onChange={(e) => setTitle(e.target.value)}
           />
 
-          <div className="flex shrink-0 items-center gap-2">
+          {/* Wraps and may truncate. In English these three sit happily in a
+              corner; in Sinhala "Save changes" alone is half a phone wide,
+              and a row that refuses to shrink is what makes the whole page
+              slide sideways. */}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:flex-none sm:shrink-0">
             <button type="button" className="btn-ghost" onClick={() => setStartFromOpen(true)}>
               <span aria-hidden>📄</span>
               <span className="hidden sm:inline">{t('creator.importGenerate')}</span>
@@ -240,25 +244,27 @@ export function QuizCreator({ onLaunch, busy, error, editing = null, onCancelEdi
               <span className="hidden sm:inline">{t('creator.settings')}</span>
             </button>
             {editing && (
-              <button type="button" className="btn-ghost" onClick={onCancelEdit} disabled={busy}>
-                {t('creator.cancel')}
+              <button type="button" className="btn-ghost min-w-0" onClick={onCancelEdit} disabled={busy}>
+                <span className="truncate">{t('creator.cancel')}</span>
               </button>
             )}
             <button
               type="button"
-              className="btn-primary btn-lg"
+              className="btn-primary btn-lg min-w-0"
               disabled={busy || incompleteCount > 0}
               // The room takes this device's look with it, so every phone
               // that joins shows what the teacher is looking at.
               onClick={() => onLaunch({ title, questions }, { ...settings, appearance })}
             >
-              {busy
-                ? editing
-                  ? t('creator.saving')
-                  : t('creator.opening')
-                : editing
-                  ? t('creator.saveChanges')
-                  : t('creator.launch')}
+              <span className="truncate">
+                {busy
+                  ? editing
+                    ? t('creator.saving')
+                    : t('creator.opening')
+                  : editing
+                    ? t('creator.saveChanges')
+                    : t('creator.launch')}
+              </span>
             </button>
           </div>
         </div>
