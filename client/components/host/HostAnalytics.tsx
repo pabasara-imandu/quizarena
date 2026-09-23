@@ -3,6 +3,7 @@
 import { Fragment, useMemo, useState } from 'react';
 import { TYPED_TYPES, type Analytics } from '@/lib/types';
 import { ShortAnswerReview, type RegradeChange } from '@/components/host/ShortAnswerReview';
+import { StudentReport } from '@/components/host/StudentReport';
 import {
   buildGradebookCsv,
   buildPerStudentCsv,
@@ -36,6 +37,8 @@ export function HostAnalytics({
   const [tab, setTab] = useState<
     'questions' | 'students' | 'matrix' | 'integrity' | 'remark'
   >('questions');
+  /** Whose paper is open over the results, if anyone's. */
+  const [reportFor, setReportFor] = useState<string | null>(null);
 
   const shortAnswerCount = data.perQuestion.filter((q) => TYPED_TYPES.includes(q.type)).length;
 
@@ -279,9 +282,9 @@ export function HostAnalytics({
         </div>
       )}
 
-      {tab === 'matrix' && <MatrixTable data={data} />}
+      {tab === 'matrix' && <MatrixTable data={data} onReport={setReportFor} />}
 
-      {tab === 'students' && <StudentBreakdown data={data} />}
+      {tab === 'students' && <StudentBreakdown data={data} onReport={setReportFor} />}
 
       {tab === 'integrity' && (
         <div className="surface p-5">
@@ -311,6 +314,15 @@ export function HostAnalytics({
           <p className="mt-4 text-xs leading-relaxed text-slate-500">{t('an.integrityNote')}</p>
         </div>
       )}
+
+      {reportFor && (
+        <StudentReport
+          data={data}
+          playerId={reportFor}
+          onSelect={setReportFor}
+          onClose={() => setReportFor(null)}
+        />
+      )}
     </div>
   );
 }
@@ -320,7 +332,7 @@ export function HostAnalytics({
  * scrolling right through 20 questions - the whole point is being able to read
  * one child's row across, or one question's column down.
  */
-function MatrixTable({ data }: { data: Analytics }) {
+function MatrixTable({ data, onReport }: { data: Analytics; onReport: (playerId: string) => void }) {
   const t = useT();
   const { matrix } = data;
   const [showResponses, setShowResponses] = useState(false);
@@ -382,7 +394,15 @@ function MatrixTable({ data }: { data: Analytics }) {
             {matrix.rows.map((row) => (
               <tr key={row.playerId}>
                 <td className="sticky left-0 z-10 max-w-[10rem] truncate bg-ink-800 px-2 py-1.5 font-medium">
-                  <span className="text-slate-500">{row.rank}.</span> {row.nickname}
+                  <span className="text-slate-500">{row.rank}.</span>{' '}
+                  <button
+                    type="button"
+                    className="underline decoration-dotted underline-offset-2 hover:text-brand-300"
+                    onClick={() => onReport(row.playerId)}
+                    title={t('st.reportAria', { name: row.nickname })}
+                  >
+                    {row.nickname}
+                  </button>
                 </td>
                 <td className="px-2 py-1.5 text-right nums font-semibold text-brand-300">
                   {row.score.toLocaleString()}
@@ -442,7 +462,7 @@ function MatrixTable({ data }: { data: Analytics }) {
  * a parent asks where the marks went. Both come from the matrix the server
  * already sends, so this needs no network and works on an archive.
  */
-function StudentBreakdown({ data }: { data: Analytics }) {
+function StudentBreakdown({ data, onReport }: { data: Analytics; onReport: (playerId: string) => void }) {
   const t = useT();
   const [open, setOpen] = useState<string | null>(null);
   const { matrix } = data;
@@ -460,7 +480,8 @@ function StudentBreakdown({ data }: { data: Analytics }) {
               <th className="py-3 pr-3 text-right">{t('st.accuracy')}</th>
               <th className="py-3 pr-3 text-right">{t('st.avgTime')}</th>
               <th className="py-3 pr-3 text-right">{t('st.streak')}</th>
-              <th className="py-3 pr-4 text-right">{t('st.flags')}</th>
+              <th className="py-3 pr-3 text-right">{t('st.flags')}</th>
+              <th className="py-3 pr-4" />
             </tr>
           </thead>
           <tbody className="divide-y divide-mist/5">
@@ -493,7 +514,7 @@ function StudentBreakdown({ data }: { data: Analytics }) {
                     <td className="py-2.5 pr-3 text-right nums">{pct(p?.accuracy ?? 0)}</td>
                     <td className="py-2.5 pr-3 text-right nums">{secs(p?.averageResponseMs ?? null)}</td>
                     <td className="py-2.5 pr-3 text-right nums">{p?.bestStreak ?? 0}</td>
-                    <td className="py-2.5 pr-4 text-right">
+                    <td className="py-2.5 pr-3 text-right">
                       {p && p.strikes + p.tabSwitches > 0 ? (
                         <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
                           {t('st.flagsValue', { tab: p.tabSwitches, fs: p.fullscreenExits })}
@@ -502,11 +523,24 @@ function StudentBreakdown({ data }: { data: Analytics }) {
                         <span className="text-slate-600">{t('st.clean')}</span>
                       )}
                     </td>
+                    <td className="py-2.5 pr-4 text-right">
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm whitespace-nowrap"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReport(row.playerId);
+                        }}
+                        aria-label={t('st.reportAria', { name: row.nickname })}
+                      >
+                        {t('st.report')}
+                      </button>
+                    </td>
                   </tr>
 
                   {expanded && (
                     <tr>
-                      <td colSpan={8} className="bg-black/20 px-4 py-3">
+                      <td colSpan={9} className="bg-black/20 px-4 py-3">
                         <table className="w-full text-[13px]">
                           <thead className="text-left text-[11px] uppercase tracking-wide text-slate-600">
                             <tr>

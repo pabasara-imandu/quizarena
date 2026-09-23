@@ -40,5 +40,14 @@ break a page. **Export edits** on that page, then
    the script needs a font the app does not ship, add it in `app/layout.tsx`
    the way Noto Sans Sinhala is.
 
+## After adding a screen
+
+New keys in `en.ts` are English everywhere until they are translated.
+`node scripts/translation-prompt.mjs Sinhala --missing si` writes one short
+prompt with only the keys `si.ts` does not have yet; the reply goes through
+`translation-import.mjs si reply.txt`, which merges it into the dictionary
+that is already there. Until then those words simply show in English, and an
+admin can also type them straight into `/admin` → Translations.
+
 Sinhala and Tamil both depend on the zero-width joiner (U+200D) inside words;
 the server's anti-spoofing filter deliberately keeps it.

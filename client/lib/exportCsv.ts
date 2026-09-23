@@ -1,3 +1,4 @@
+import { answerKeyOf, buildStudentReport } from '@/lib/studentReport';
 import type { Analytics } from '@/lib/types';
 
 /**
@@ -111,24 +112,11 @@ export function buildGradebookCsv(analytics: Analytics): string {
   ]);
 
   for (const q of perQuestion) {
-    const answerKey =
-      q.type === 'short'
-        ? (q.acceptedAnswers ?? []).join(' | ')
-        : q.type === 'numeric'
-          ? String(q.answer ?? '') + (q.tolerance ? ' ±' + q.tolerance : '') + (q.unit ? ' ' + q.unit : '')
-          : q.type === 'ordering'
-            ? (q.correctOrder ?? []).map((id) => q.options.find((o) => o.id === id)?.text ?? id).join(' > ')
-            : q.type === 'poll'
-              ? '(poll)'
-              : q.options
-                  .filter((o) => o.correct)
-                  .map((o) => o.text)
-                  .join(' | ');
     rows.push([
       'Q' + (q.position + 1),
       q.type,
       q.text,
-      answerKey,
+      answerKeyOf(q) ?? '(poll)',
       q.answered,
       q.correct,
       q.skipped ?? 0,
@@ -170,7 +158,8 @@ export function buildGradebookCsv(analytics: Analytics): string {
  * spreadsheet can filter, sort and pivot without any reshaping.
  */
 export function buildPerStudentCsv(analytics: Analytics): string {
-  const { matrix } = analytics;
+  const { matrix, perQuestion } = analytics;
+  const keyOf = new Map(perQuestion.map((q) => [q.questionId, answerKeyOf(q)]));
   const rows: unknown[][] = [];
 
   rows.push(['QuizArena results', analytics.quizTitle]);
@@ -183,6 +172,7 @@ export function buildPerStudentCsv(analytics: Analytics): string {
     'Question',
     'Question text',
     'Their answer',
+    'Correct answer',
     'Correct?',
     'Marks',
     'Time (s)',
@@ -197,8 +187,9 @@ export function buildPerStudentCsv(analytics: Analytics): string {
         row.score,
         'Q' + (q.position + 1),
         q.text,
-        cell.status === 'no_answer' ? '(no answer)' : cell.status === 'skipped' ? '(skipped)' : cell.response ?? '',
-        cell.status === 'correct' ? 'Yes' : cell.status === 'incorrect' ? 'No' : cell.status === 'answered' ? 'Voted' : '',
+        answerGiven(cell),
+        keyOf.get(q.questionId) ?? '(poll)',
+        verdict(cell),
         cell.points ?? 0,
         cell.responseMs == null ? '' : (cell.responseMs / 1000).toFixed(2),
       ]);
@@ -206,6 +197,101 @@ export function buildPerStudentCsv(analytics: Analytics): string {
   }
 
   return toCsv(rows);
+}
+
+const answerGiven = (cell: { status: string; response: string | null }) =>
+  cell.status === 'no_answer' ? '(no answer)' : cell.status === 'skipped' ? '(skipped)' : cell.response ?? '';
+
+const verdict = (cell: { status: string }) =>
+  cell.status === 'correct' ? 'Yes' : cell.status === 'incorrect' ? 'No' : cell.status === 'answered' ? 'Voted' : '';
+
+/**
+ * One participant's paper as a file: their totals, then every question in the
+ * order they saw it with what they wrote, what was wanted, and what it earned.
+ *
+ * The same thing the on-screen report shows - for the teacher who would rather
+ * paste one child's row into a mark book, or send it to a parent, than print.
+ */
+export function buildStudentCsv(analytics: Analytics, playerId: string): string {
+  const report = buildStudentReport(analytics, playerId);
+  if (!report) return toCsv([['No results for that student.']]);
+
+  const rows: unknown[][] = [
+    ['QuizArena report', report.nickname],
+    ['Quiz', analytics.quizTitle],
+    ['Room PIN', analytics.pin],
+    ['Finished', new Date(analytics.finishedAt).toISOString()],
+    ['Rank', report.rank + ' of ' + report.total],
+    ['Marks', report.score],
+    ['Correct', report.correctCount + '/' + report.answeredCount],
+    ['Accuracy', pct(report.accuracy)],
+    ['Class accuracy', pct(report.classAccuracy)],
+    ['Class average marks', report.classAverageScore],
+    ['Skipped', report.skippedCount],
+    ['Not answered', report.noAnswerCount],
+    ['Best streak', report.bestStreak],
+    ['Avg time (s)', report.averageResponseMs == null ? '' : (report.averageResponseMs / 1000).toFixed(2)],
+    ['Tab switches', report.tabSwitches],
+    ['Full-screen exits', report.fullscreenExits],
+    ['Warnings', report.strikes],
+    [],
+    [
+      'Question',
+      'Type',
+      'Question text',
+      'Their answer',
+      'Correct answer',
+      'Correct?',
+      'Marks',
+      'Worth',
+      'Time (s)',
+      'Time limit (s)',
+      'Class correct',
+      'Explanation',
+    ],
+  ];
+
+  for (const line of report.lines) {
+    rows.push([
+      'Q' + (line.position + 1),
+      line.type,
+      line.text,
+      answerGiven(line),
+      line.correctAnswer ?? '(poll)',
+      verdict(line),
+      line.points,
+      line.basePoints,
+      line.responseMs == null ? '' : (line.responseMs / 1000).toFixed(2),
+      line.timeLimitSec,
+      line.classAnswered ? line.classCorrect + '/' + line.classAnswered : '',
+      line.explanation ?? '',
+    ]);
+  }
+
+  if (report.flagCount > 0) {
+    rows.push([]);
+    rows.push(['Integrity flags']);
+    rows.push(['Time', 'Question', 'Event']);
+    for (const e of analytics.integrityLog.filter((x) => x.playerId === playerId)) {
+      rows.push([
+        new Date(e.at).toISOString(),
+        e.questionIndex >= 0 && e.questionIndex < report.lines.length ? 'Q' + (e.questionIndex + 1) : '',
+        e.type,
+      ]);
+    }
+  }
+
+  return toCsv(rows);
+}
+
+/** A filename stem for one student's file: the quiz stem plus their name. */
+export function studentStem(analytics: Analytics, nickname: string): string {
+  const name = nickname
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .slice(0, 30);
+  return exportStem(analytics) + '-' + (name || 'student');
 }
 
 /** Rank, score and integrity flags: the quick one a teacher pastes into a mark book. */

@@ -4,6 +4,12 @@
  *
  *   node scripts/translation-prompt.mjs Sinhala
  *   node scripts/translation-prompt.mjs Tamil
+ *   node scripts/translation-prompt.mjs Sinhala --missing si
+ *
+ * With --missing <code> it asks only for the keys that lib/i18n/<code>.ts
+ * does not have yet - what a new screen adds. One short prompt, one short
+ * reply, and translation-import.mjs merges it into the dictionary that is
+ * already there.
  *
  * Reads every key in lib/i18n/en.ts and writes two files next to this script,
  * translation-prompt-<lang>-part1.txt (the student's screens and shared text)
@@ -15,7 +21,7 @@
  * strings is long enough for a model to trail off or skip keys, and a skipped
  * key is a screen that silently stays English.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,6 +29,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const language = process.argv[2];
 if (!language) {
   console.error('Usage: node scripts/translation-prompt.mjs <Language name, e.g. Sinhala>');
+  process.exit(1);
+}
+
+const missingOf = process.argv.indexOf('--missing') >= 0 ? process.argv[process.argv.indexOf('--missing') + 1] : null;
+if (process.argv.includes('--missing') && !missingOf) {
+  console.error('Usage: node scripts/translation-prompt.mjs <Language> --missing <code, e.g. si>');
   process.exit(1);
 }
 
@@ -35,6 +47,20 @@ const pairs = [];
 for (const m of body.matchAll(entry)) {
   const value = (m[2] ?? m[3]).replace(/\\'/g, "'").replace(/\\"/g, '"');
   pairs.push([m[1], value]);
+}
+
+/** Keys a dictionary already has words for. */
+function translatedKeys(code) {
+  const file = join(here, '..', 'lib', 'i18n', `${code}.ts`);
+  if (!existsSync(file)) return new Set();
+  const text = readFileSync(file, 'utf8');
+  const start = text.indexOf(`export const ${code}`);
+  if (start < 0) return new Set();
+  const have = new Set();
+  for (const m of text.slice(start).matchAll(entry)) {
+    if ((m[2] ?? m[3]).trim()) have.add(m[1]);
+  }
+  return have;
 }
 
 const STUDENT = [
@@ -137,6 +163,8 @@ const notes2 = `NOTES ON PARTICULAR KEYS
 - mx.*: that grid. mx.pts and mx.inTime are joined into a tooltip, e.g. "1200 pts in 4.5s".
 - st.*: column headings of the student table. st.flagsValue: a compact count, e.g. "2 tab · 1 fs" (tab switches and full-screen exits) - keep it compact.
 - st.q: a one-letter column heading for the question number.
+- st.report: a small button at the end of a student's row, and st.reportAria is what a screen reader says for it.
+- rep.*: one student's whole report, opened over the results and made to be printed. rep.rankOf: their place, e.g. "3rd of 28". rep.theirAnswer and rep.correctAnswer are small labels in front of an answer. rep.timeOf, rep.worth and rep.classGot are fragments joined with " · " in one small line under each question, e.g. "4.3s of 20s · worth 1000 · class 62% correct (18/29)". rep.status.*: a small pill on each question - keep the ✓ ✕ ⏭ marks. rep.flagLoose: shown instead of a question number when the flag was raised in the lobby or between questions. rep.keysHint: the keyboard keys that page between students.
 - rm.*: the re-marking screen. rm.auto: placeholder in a marks box meaning "worked out automatically".
 - past.*: the list of finished quizzes saved on the device. past.q: e.g. "12 Q" meaning 12 questions - keep it short.
 
@@ -144,6 +172,29 @@ const notes2 = `NOTES ON PARTICULAR KEYS
 
 const dump = (o) => JSON.stringify(o, null, 2);
 const slug = language.toLowerCase();
+
+if (missingOf) {
+  const have = translatedKeys(missingOf);
+  const missing = Object.fromEntries(pairs.filter(([k]) => !have.has(k)));
+  const count = Object.keys(missing).length;
+  const out = join(here, `translation-prompt-${slug}-missing.txt`);
+  if (count === 0) {
+    console.log(`Nothing missing - lib/i18n/${missingOf}.ts already has all ${pairs.length} keys.`);
+    process.exit(0);
+  }
+  writeFileSync(
+    out,
+    header +
+      notes1 +
+      notes2 +
+      `JSON TO TRANSLATE (the ${count} strings lib/i18n/${missingOf}.ts does not have yet):\n\n` +
+      dump(missing) +
+      '\n'
+  );
+  console.log(`${count} missing strings -> ${out}`);
+  process.exit(0);
+}
+
 const out1 = join(here, `translation-prompt-${slug}-part1.txt`);
 const out2 = join(here, `translation-prompt-${slug}-part2.txt`);
 writeFileSync(

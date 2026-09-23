@@ -582,3 +582,87 @@ html:lang(si) :is(.leading-none, .leading-tight, .leading-snug):not(.nums) {
 [data-palette='contrast'] .surface {
   --surface-alpha: 0.07;
 }
+
+/* --------------------------------------------------- printing a report */
+/* A student's report is the one thing in this app that ends up on paper -
+   pinned in a file, handed to a parent, saved as a PDF - so printing is not
+   an afterthought here.
+   The report is rendered into <body> rather than into the results screen, so
+   the printed page starts with the sheet itself and everything else can be
+   switched off outright.
+   The sheet's colours are pinned to paper values whatever theme the teacher
+   is using; Terminal green on black is a fine screen but a wasted cartridge. */
+@media print {
+  /* The report hangs off <body>, so everything else is one rule away. */
+  body.report-open > *:not(.report-overlay) {
+    display: none !important;
+  }
+  /* The overlay is a fixed, scrolling box on screen; on paper it must be
+     ordinary flow, or the printout stops after the first page. */
+  body.report-open {
+    overflow: visible !important;
+  }
+  @page {
+    margin: 14mm;
+  }
+  html,
+  body.report-open {
+    background: #fff !important;
+  }
+  .report-overlay {
+    position: static !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: none !important;
+    backdrop-filter: none !important;
+  }
+  /* On screen the sheet is a column in the middle of the room; on paper the
+     page margins do that job, so let it have the full width. */
+  .report-overlay > * {
+    max-width: none !important;
+  }
+  .print-hide {
+    display: none !important;
+  }
+  .report-sheet {
+    --ink-950: 255 255 255;
+    --ink-900: 255 255 255;
+    --ink-850: 255 255 255;
+    --ink-800: 255 255 255;
+    --brand-200: 49 38 128;
+    --brand-300: 60 45 160;
+    --brand-400: 60 45 160;
+    --brand-500: 60 45 160;
+    --fg-100: 17 17 17;
+    --fg-200: 26 26 26;
+    --fg-300: 43 43 43;
+    --fg-400: 82 82 82;
+    --fg-500: 105 105 105;
+    --fg-600: 125 125 125;
+    --fg-700: 145 145 145;
+    --mist: 0 0 0;
+    --surface: 255 255 255;
+    --surface-alpha: 1;
+    /* Text that inherits its colour picked it up from <body>, where the
+       variables above did not apply yet - say it again here. */
+    color: rgb(var(--fg-100));
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    /* Keep the right/wrong tints: a printout that loses them still reads,
+       because every one of them is also a word and a mark. */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .report-sheet .surface,
+  .report-sheet [class*='shadow-'] {
+    box-shadow: none !important;
+  }
+  /* A question should not be torn in half across a page break. */
+  .report-q {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

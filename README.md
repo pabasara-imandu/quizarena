@@ -42,7 +42,8 @@ quiz/
     ├── components/
     │   ├── host/                    QuizCreator (workspace shell), QuestionList,
     │   │                            QuestionEditor, SettingsPanel, StartFromModal,
-    │   │                            HostLobby, HostLive, HostAnalytics, ReactionOverlay
+    │   │                            HostLobby, HostLive, HostAnalytics, StudentReport,
+    │   │                            ReactionOverlay
     │   ├── student/                 JoinScreen, WaitingRoom, StudentQuiz
     │   └── ui/                      AnswerGrid, ShortAnswer, Countdown, Leaderboard,
     │                                StreakMeter, EmojiBar, QuestionMedia,
@@ -52,6 +53,8 @@ quiz/
         ├── serverUrl.ts             Resolves the API origin (env, or same-origin)
         ├── useCountdown.ts          Server-clock countdown
         ├── useProctoring.ts         Full-screen + Page Visibility monitoring
+        ├── exportCsv.ts             Every CSV, built in the browser from the results
+        ├── studentReport.ts         One participant's paper, rebuilt from the payload
         └── types.ts                 Shared wire types
 
 Deployment:
@@ -345,6 +348,9 @@ real, editable question rows with the topic filled in and the answers left obvio
 | Endpoint | Contents |
 |---|---|
 | Summary CSV (client-side) | One row per student: score, correct, skipped, accuracy, avg time, streak, integrity counts |
+| Full gradebook CSV (client-side) | The student × question matrix, per-question summary and answer breakdown |
+| Per-student CSV (client-side) | One row per (student, question): their answer, the right answer, marks, time |
+| One student's CSV (client-side) | The same for a single child, with their totals on top — from their report |
 | `GET /api/rooms/:pin/export.csv` | **Deep gradebook** — see below |
 | `GET /api/rooms/:pin/export.json` | The same data as JSON, for wiring into a gradebook |
 
@@ -353,6 +359,20 @@ The deep export is a **student × question matrix**: one row per student, four c
 block, an answer-level breakdown, and the integrity log. A teacher can read a row across to see one
 child's pattern or a column down to see where the class fell over. The same matrix is browsable in
 the **Matrix** tab of the analytics screen, with a sticky name column.
+
+### One participant's report
+
+**Full report**, on any student's row in the **Students** tab (or their name in the Matrix), opens
+that child's whole paper: their rank, marks, accuracy and time against the class, then every
+question in the order they saw it — what they answered, what the answer was, what it earned, how
+long they took, how the rest of the room did on it, the teacher's explanation, and any integrity
+flags raised while that question was up. `←` `→` page through the class, `Esc` closes.
+
+It is built to be printed: **Print / PDF** hides the app, forces the sheet to paper colours
+whatever theme the room is wearing, and keeps a question from being split across two pages — one
+sheet per child for a file or a parent. **This student (CSV)** is the same thing as a file. Like
+every other export it is built in the browser from the results already on screen, so it works on an
+archived quiz whose room and server are long gone.
 
 Both server exports require the host token (`?hostToken=…` or an `x-host-token` header) — a whole
 class's results are not something a student who knows the PIN should be able to download. Every
